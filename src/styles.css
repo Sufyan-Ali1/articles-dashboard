@@ -1,0 +1,151 @@
+@import '@fontsource-variable/inter';
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --background: #f8f9fc;
+  --foreground: #202535;
+  --card: #fff;
+  --card-foreground: #202535;
+  --primary: #5146df;
+  --primary-foreground: #fff;
+  --secondary: #eef0f8;
+  --secondary-foreground: #333952;
+  --muted: #f0f2f7;
+  --muted-foreground: #727b8e;
+  --border: #e7eaf0;
+  --input: #dfe3ec;
+  --destructive: #dc3545;
+  --ring: #7970ec;
+  --sidebar: #fff;
+  color-scheme: light;
+}
+.dark {
+  --background: #10131c;
+  --foreground: #e4e7ef;
+  --card: #191d29;
+  --card-foreground: #e4e7ef;
+  --primary: #9690ff;
+  --primary-foreground: #151329;
+  --secondary: #282d40;
+  --secondary-foreground: #e4e7ef;
+  --muted: #252a38;
+  --muted-foreground: #9ca6ba;
+  --border: #2a3040;
+  --input: #353d50;
+  --destructive: #ff7180;
+  --ring: #9690ff;
+  --sidebar: #171b25;
+  color-scheme: dark;
+}
+@theme inline {
+  --font-sans: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-destructive: var(--destructive);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+}
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply m-0 min-w-[320px] bg-background text-foreground;
+  }
+  button,
+  a,
+  input,
+  textarea,
+  select,
+  summary,
+  [tabindex] {
+    @apply outline-none;
+  }
+  :focus-visible {
+    @apply ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+  button,
+  summary {
+    @apply cursor-pointer;
+  }
+  button:disabled {
+    @apply cursor-not-allowed;
+  }
+  input[type='checkbox'] {
+    @apply shrink-0;
+  }
+  input:read-only,
+  textarea:read-only {
+    @apply bg-muted/40;
+  }
+  ::selection {
+    @apply bg-primary/15;
+  }
+}
+[data-density='compact'] tbody td {
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+}
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  height: 0;
+}
+.tiptap table {
+  table-layout: fixed;
+  border-collapse: collapse;
+  width: 100%;
+  overflow: hidden;
+}
+.tiptap td,
+.tiptap th,
+.prose td,
+.prose th {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+}
+.tiptap th {
+  background: var(--muted);
+}
+.tiptap .selectedCell {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.tiptap pre {
+  white-space: pre-wrap;
+}
+.prose img {
+  max-width: 100%;
+}
+.prose pre,
+.prose table {
+  overflow-x: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
