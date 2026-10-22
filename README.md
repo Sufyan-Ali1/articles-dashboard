@@ -23,7 +23,7 @@ This is an npm Arborist peer-resolution crash. Vitest is pinned to `4.1.11` so i
 
 Tiptap's core and optional menu extensions are pinned to `3.30.1`; Prettier is pinned to `3.9.8`. Use fresh registry metadata rather than `--prefer-offline` after an `ETARGET` failure. If an interrupted install leaves truncated native binaries, rebuild the generated `node_modules` directory. Keep the npm cache so valid downloads can be reused.
 
-Open the Vite URL printed in the terminal. The API must be running separately. Set `VITE_API_BASE_URL` to its **full API prefix**, for example `http://localhost:8000/api/v1`. Restart Vite after changing environment variables. A missing or invalid value produces a configuration screen rather than fabricated data.
+Open the Vite URL printed in the terminal. The API must be running separately. Set `VITE_API_BASE_URL` to its **full API prefix**, for example `http://127.0.0.1:8000/api/v1`. Restart Vite after changing environment variables. A missing or invalid value produces a configuration screen rather than fabricated data.
 
 The initial administrator must already exist in the backend. Follow the backend's administrator bootstrap instructions; this dashboard does not register accounts or modify database configuration.
 
@@ -61,7 +61,7 @@ The API client accepts only explicit feature parameters. Lists use the backend's
 
 ## Authentication and permissions
 
-Access tokens are held only in JavaScript memory. Refreshing, closing the page, logging out, or token expiry ends the session. The application warns one minute before expiry and clears private query caches on logout/expiry. Local logout does not revoke an issued JWT because the API has no revocation endpoint. Changing roles or deactivating an account remains enforced by the backend on every authenticated request.
+Access tokens are held only in JavaScript memory. A backend-issued HttpOnly refresh cookie restores authentication after reload and renews access tokens automatically. Startup waits for session verification; temporary failures offer retry. Logout revokes the server session and clears private query caches. The backend must apply migration `0002_refresh_sessions`, enable credentialed CORS for the dashboard origin, and serve production requests over HTTPS. Use the same hostname for frontend and API in development.
 
 | Workflow                                    | Admin                  | Editor        | Author        |
 | ------------------------------------------- | ---------------------- | ------------- | ------------- |
@@ -87,7 +87,13 @@ The interface hides unauthorized controls, but FastAPI is the security authority
 - Untouched backend HTML is preserved. Existing markup outside the visual editor's supported subset opens in source mode; leaving source mode is blocked until incompatible markup is removed. Preview sanitizes HTML, forbids executable embeds, and never increments public article views.
 - Classification selections include previously linked inactive records. New inactive selections are blocked. Publication errors remain authoritative when references have changed.
 - Slug collisions, referenced-classification deletion, category cycles, and last-admin conflicts are displayed without silently changing data.
-- There is no autosave, upload, scheduling, revision history, or optimistic concurrency contract. Save explicitly. Concurrent edits use the backend's last-write behavior; a dirty form is not replaced by background data.
+- There is no autosave, scheduling, revision history, or optimistic concurrency contract. Save explicitly. Concurrent edits use the backend's last-write behavior; a dirty form is not replaced by background data.
+
+## Article image uploads
+
+Featured and inline images upload immediately through the authenticated backend to Cloudinary. Save/publish waits for active uploads. Removing an image only changes the editor until you save; unused images are removed after a 24-hour grace period, with shared saved references protected. Abandoned uploads follow the same cleanup rule.
+
+In `Blogs_Backend`, configure `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`, run `alembic upgrade head`, and restart the API. Uploads support JPEG, PNG, GIF, and WebP up to 2 MiB. Keep all Cloudinary credentials in the backend environment. See the backend's `docs/MEDIA_UPLOADS.md` for cleanup and deployment details.
 
 ## Dashboard metrics
 
@@ -108,4 +114,4 @@ Pages serves `index.html` for unknown navigation paths when there is no top-leve
 
 ## Remaining backend capabilities
 
-There are no refresh-session, server logout, non-admin self-profile update, upload, settings, analytics aggregate, reviewer-name lookup for editors, or conditional-update endpoints. Their absence is handled explicitly. See [API integration notes](docs/API_CONTRACT.md) and the [verification report](IMPLEMENTATION_REPORT.md).
+There are no non-admin self-profile update, settings, analytics aggregate, reviewer-name lookup for editors, or conditional-update endpoints. Their absence is handled explicitly. See [API integration notes](docs/API_CONTRACT.md) and the [verification report](IMPLEMENTATION_REPORT.md).

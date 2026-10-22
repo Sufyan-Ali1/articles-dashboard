@@ -1,5 +1,5 @@
 import { http, HttpResponse, delay } from 'msw';
-import { api, ApiError, collectPages, queryString, setApiSession } from './api';
+import { api, ApiError, collectPages, queryString, setApiSession, setSessionRenewal } from './api';
 import { base, server } from '@/test/server';
 import { page } from '@/test/fixtures';
 describe('API integration boundary', () => {
@@ -55,6 +55,26 @@ describe('API integration boundary', () => {
       api('/auth/login', { method: 'POST', anonymous: true, body: {} }),
     ).rejects.toMatchObject({ status: 401 });
     expect(expire).not.toHaveBeenCalled();
+  });
+  it('renews an expired token and retries an authenticated request once', async () => {
+    const expire = vi.fn();
+    const renew = vi.fn(async () => setApiSession('renewed', expire, true));
+    setApiSession('expired', expire);
+    setSessionRenewal(renew);
+    server.use(
+      http.get(`${base}/auth/me`, ({ request }) =>
+        request.headers.get('Authorization') === 'Bearer renewed'
+          ? HttpResponse.json({ data: { id: 'restored' } })
+          : HttpResponse.json({ error: { code: 'unauthorized' } }, { status: 401 }),
+      ),
+    );
+    try {
+      await expect(api('/auth/me')).resolves.toEqual({ data: { id: 'restored' } });
+      expect(renew).toHaveBeenCalledTimes(1);
+      expect(expire).not.toHaveBeenCalled();
+    } finally {
+      setSessionRenewal(null);
+    }
   });
   it('respects request cancellation', async () => {
     server.use(

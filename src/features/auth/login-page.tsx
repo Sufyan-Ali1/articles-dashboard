@@ -13,7 +13,7 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Enter your password.').max(128),
 });
 export default function LoginPage() {
-  const { user, login } = useAuth();
+  const { user, login, initializing, sessionError, restoreSession } = useAuth();
   const location = useLocation();
   const [error, setError] = useState<unknown>(null);
   const [visible, setVisible] = useState(false);
@@ -26,6 +26,19 @@ export default function LoginPage() {
     candidate?.startsWith('/') && !candidate.startsWith('//') && !candidate.startsWith('/login')
       ? candidate
       : '/dashboard';
+  if (initializing)
+    return (
+      <div role="status" className="p-8">
+        Restoring your session…
+      </div>
+    );
+  if (sessionError)
+    return (
+      <div className="p-8">
+        <ErrorState compact error={sessionError} />
+        <Button onClick={() => void restoreSession().catch(() => undefined)}>Retry</Button>
+      </div>
+    );
   if (user) return <Navigate to={destination} replace />;
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
@@ -149,7 +162,7 @@ export default function LoginPage() {
             if you need an account or password assistance.
           </p>
           <div className="mt-12 border-t pt-5 text-center text-[11px] text-muted-foreground">
-            Sessions end on refresh to keep your account secure.
+            Your session is securely restored when you return.
           </div>
         </div>
       </main>

@@ -17,6 +17,7 @@ import { Select, Textarea } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/badge';
 import {
   Card,
+  TableCard,
   ConfirmDialog,
   EmptyState,
   ErrorState,
@@ -59,123 +60,127 @@ export default function RequestsPage() {
         description="Good ideas can come from anywhere. Find your next story here."
         eyebrow="Reader ideas"
       />
-      <Card>
-        <div className="flex flex-wrap gap-3 border-b p-4">
-          <SearchInput
-            placeholder="Search requested topics…"
-            value={list.search}
-            onChange={(value) => list.set('search', value)}
-          />
-          <Select
-            aria-label="Request status"
-            className="w-full sm:w-40"
-            value={status ?? ''}
-            onChange={(event) => list.set('status', event.target.value)}
-          >
-            <option value="">All statuses</option>
-            {statuses.map((value) => (
-              <option key={value} value={value}>
-                {value.charAt(0).toUpperCase() + value.slice(1)}
-              </option>
-            ))}
-          </Select>
-          <Select
-            aria-label="Sort requests"
-            className="w-full sm:w-44"
-            value={list.sort}
-            onChange={(event) => list.set('sort', event.target.value)}
-          >
-            <option value="-created_at">Newest first</option>
-            <option value="created_at">Oldest first</option>
-            <option value="-updated_at">Recently updated</option>
-            <option value="topic">Topic A–Z</option>
-            <option value="status">Status</option>
-          </Select>
-        </div>
-        {query.isPending ? (
-          <Loading />
-        ) : query.error ? (
-          <div className="p-5">
-            <ErrorState error={query.error} retry={() => void query.refetch()} />
-          </div>
-        ) : !query.data.data.length ? (
-          <EmptyState
-            title="No requests found"
-            description="Reader-submitted topics will appear here. Try changing your filters."
-          />
-        ) : (
-          <>
-            <Table
-              label="Article requests"
-              headings={['Topic', 'Submitted by', 'Status', 'Received', 'Actions']}
+      <TableCard>
+        <div className="table-controls">
+          <div className="flex flex-wrap gap-3 border-b p-4">
+            <SearchInput
+              placeholder="Search requested topics…"
+              value={list.search}
+              onChange={(value) => list.set('search', value)}
+            />
+            <Select
+              aria-label="Request status"
+              className="w-full sm:w-40"
+              value={status ?? ''}
+              onChange={(event) => list.set('status', event.target.value)}
             >
-              {query.data.data.map((request) => (
-                <tr key={request.id} className="hover:bg-muted/30">
-                  <td className="max-w-lg px-5 py-4">
-                    <Link
-                      to={`/article-requests/${request.id}`}
-                      className="font-medium hover:text-primary"
-                    >
-                      {request.topic}
-                    </Link>
-                    {request.description && (
-                      <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                        {request.description}
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-5 py-4">
-                    <p className="text-xs">{request.name ?? 'Anonymous reader'}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {request.email ?? 'No email provided'}
-                    </p>
-                  </td>
-                  <td className="px-5 py-4">
-                    <StatusBadge status={request.status} />
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-4 text-xs text-muted-foreground">
-                    {date(request.created_at)}
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex gap-1">
-                      <Button asChild size="sm" variant="ghost">
-                        <Link to={`/article-requests/${request.id}`}>
-                          Review
-                          <ArrowUpRight />
-                        </Link>
-                      </Button>
-                      {user?.role === 'admin' && (
-                        <ConfirmDialog
-                          title="Delete request?"
-                          description="This request and its review notes will be permanently deleted."
-                          onConfirm={async () => {
-                            await requestsApi.delete(request.id);
-                            await Promise.all([
-                              client.invalidateQueries({ queryKey: ['requests'] }),
-                              client.invalidateQueries({ queryKey: ['dashboard'] }),
-                              client.invalidateQueries({ queryKey: ['logs'] }),
-                            ]);
-                            toast.success('Request deleted.');
-                          }}
-                        >
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            aria-label={`Delete request ${request.topic}`}
-                          >
-                            <Trash2 className="text-destructive" />
-                          </Button>
-                        </ConfirmDialog>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+              <option value="">All statuses</option>
+              {statuses.map((value) => (
+                <option key={value} value={value}>
+                  {value.charAt(0).toUpperCase() + value.slice(1)}
+                </option>
               ))}
-            </Table>
-          </>
-        )}
+            </Select>
+            <Select
+              aria-label="Sort requests"
+              className="w-full sm:w-44"
+              value={list.sort}
+              onChange={(event) => list.set('sort', event.target.value)}
+            >
+              <option value="-created_at">Newest first</option>
+              <option value="created_at">Oldest first</option>
+              <option value="-updated_at">Recently updated</option>
+              <option value="topic">Topic A–Z</option>
+              <option value="status">Status</option>
+            </Select>
+          </div>
+        </div>
+        <div className="table-content">
+          {query.isPending ? (
+            <Loading />
+          ) : query.error ? (
+            <div className="p-5">
+              <ErrorState error={query.error} retry={() => void query.refetch()} />
+            </div>
+          ) : !query.data.data.length ? (
+            <EmptyState
+              title="No requests found"
+              description="Reader-submitted topics will appear here. Try changing your filters."
+            />
+          ) : (
+            <>
+              <Table
+                label="Article requests"
+                headings={['Topic', 'Submitted by', 'Status', 'Received', 'Actions']}
+              >
+                {query.data.data.map((request) => (
+                  <tr key={request.id} className="hover:bg-muted/30">
+                    <td className="max-w-lg px-5 py-4">
+                      <Link
+                        to={`/article-requests/${request.id}`}
+                        className="font-medium hover:text-primary"
+                      >
+                        {request.topic}
+                      </Link>
+                      {request.description && (
+                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                          {request.description}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
+                      <p className="text-xs">{request.name ?? 'Anonymous reader'}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {request.email ?? 'No email provided'}
+                      </p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <StatusBadge status={request.status} />
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-4 text-xs text-muted-foreground">
+                      {date(request.created_at)}
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex gap-1">
+                        <Button asChild size="sm" variant="ghost">
+                          <Link to={`/article-requests/${request.id}`}>
+                            Review
+                            <ArrowUpRight />
+                          </Link>
+                        </Button>
+                        {user?.role === 'admin' && (
+                          <ConfirmDialog
+                            title="Delete request?"
+                            description="This request and its review notes will be permanently deleted."
+                            onConfirm={async () => {
+                              await requestsApi.delete(request.id);
+                              await Promise.all([
+                                client.invalidateQueries({ queryKey: ['requests'] }),
+                                client.invalidateQueries({ queryKey: ['dashboard'] }),
+                                client.invalidateQueries({ queryKey: ['logs'] }),
+                              ]);
+                              toast.success('Request deleted.');
+                            }}
+                          >
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              aria-label={`Delete request ${request.topic}`}
+                            >
+                              <Trash2 className="text-destructive" />
+                            </Button>
+                          </ConfirmDialog>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </Table>
+            </>
+          )}
+        </div>
         {query.data && !query.error && <Pagination meta={query.data.meta} set={list.set} />}
-      </Card>
+      </TableCard>
     </>
   );
 }

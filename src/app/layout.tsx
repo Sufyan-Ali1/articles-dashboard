@@ -41,8 +41,21 @@ export const navigation = [
   { path: 'settings', label: 'Settings', icon: Settings, group: 'Account' },
 ];
 export function ProtectedRoute({ roles }: { roles?: string[] }) {
-  const { user } = useAuth();
+  const { user, initializing, sessionError, restoreSession } = useAuth();
   const location = useLocation();
+  if (initializing)
+    return (
+      <div role="status" className="p-8">
+        Restoring your session…
+      </div>
+    );
+  if (sessionError)
+    return (
+      <div className="p-8">
+        <p>Unable to verify your session. Check your connection.</p>
+        <Button onClick={() => void restoreSession().catch(() => undefined)}>Retry</Button>
+      </div>
+    );
   if (!user)
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   if (roles && !roles.includes(user.role))
@@ -65,6 +78,15 @@ export default function Layout() {
   const [logoutWarning, setLogoutWarning] = useState(false);
   const location = useLocation();
   const collapsed = preferences.collapsed;
+  const tablePage = [
+    '/articles',
+    '/categories',
+    '/tags',
+    '/article-types',
+    '/article-requests',
+    '/users',
+    '/activity-logs',
+  ].includes(location.pathname.replace(/\/$/, ''));
   useEffect(() => {
     setMobile(false);
     window.scrollTo(0, 0);
@@ -236,7 +258,13 @@ export default function Layout() {
       >
         <div className="flex h-dvh flex-col">{sidebar(false)}</div>
       </Dialog>
-      <div className={cn('min-h-dvh', collapsed ? 'md:pl-[76px]' : 'md:pl-[240px]')}>
+      <div
+        className={cn(
+          'min-h-dvh',
+          tablePage && 'table-page',
+          collapsed ? 'md:pl-[76px]' : 'md:pl-[240px]',
+        )}
+      >
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b bg-card/95 px-5 backdrop-blur-sm sm:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <Button
@@ -292,7 +320,10 @@ export default function Layout() {
         <main
           id="main-content"
           tabIndex={-1}
-          className="mx-auto max-w-[1600px] px-5 py-7 outline-none sm:px-8 lg:px-10 lg:py-9"
+          className={cn(
+            'mx-auto w-full max-w-[1600px] px-5 py-7 outline-none sm:px-8 lg:px-10 lg:py-9',
+            tablePage && 'table-page-main',
+          )}
         >
           <Outlet />
         </main>

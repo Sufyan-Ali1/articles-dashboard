@@ -116,11 +116,11 @@ export default function ProfilePage() {
           <Card className="p-6">
             <h2 className="mb-3 font-semibold">Session</h2>
             <p className="text-sm leading-6 text-muted-foreground">
-              You are signed in for this page session. Refreshing or closing this page ends the
-              session. Save your work before your access token expires.
+              Your session is securely restored after a refresh. Access tokens renew automatically
+              while your saved session remains valid. Sign out when you finish on a shared device.
             </p>
             <p className="mt-3 text-xs text-muted-foreground">
-              Expires {expiresAt ? new Date(expiresAt).toLocaleTimeString() : '—'}
+              Access token renews by {expiresAt ? new Date(expiresAt).toLocaleTimeString() : '—'}
             </p>
           </Card>
         </div>

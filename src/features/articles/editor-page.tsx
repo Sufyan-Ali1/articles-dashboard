@@ -13,6 +13,7 @@ import { canEditArticle, canReview } from '@/lib/permissions';
 import { ApiError, getApiEpoch, message } from '@/lib/api';
 import { dateTime } from '@/lib/utils';
 import { articlesApi } from './api';
+import { ImageUploadProvider } from './image-upload';
 import {
   articleDefaults,
   articlePayload,
@@ -36,6 +37,12 @@ function EditorForm({ initial }: { initial?: Article }) {
   const [article, setArticle] = useState(initial);
   const articleRef = useRef(initial);
   const [pending, setPending] = useState(false);
+  const [uploads, setUploads] = useState(0);
+  const uploadsRef = useRef(0);
+  const changeUploads = (change: number) => {
+    uploadsRef.current += change;
+    setUploads(uploadsRef.current);
+  };
   const pendingRef = useRef(false);
   const [error, setError] = useState<unknown>(() => {
     const savedError = (location.state as { saveError?: string } | null)?.saveError;
@@ -51,7 +58,7 @@ function EditorForm({ initial }: { initial?: Article }) {
     defaultValues: articleDefaults(initial),
     mode: 'onBlur',
   });
-  const { warning, allowNavigation } = useUnsaved(form.formState.isDirty);
+  const { warning, allowNavigation } = useUnsaved(form.formState.isDirty || uploads > 0);
   if (!user) return null;
   const writable = !article || canEditArticle(user, article);
   const reviewer = canReview(user.role);
@@ -64,6 +71,10 @@ function EditorForm({ initial }: { initial?: Article }) {
   };
   const save = async (values: ArticleFormValues, action: 'save' | 'publish' | 'unpublish') => {
     if (pendingRef.current || !writable) return;
+    if (uploadsRef.current > 0) {
+      toast.error('Wait for image uploads to finish before saving.');
+      return;
+    }
     if (articleRef.current && !values.slug) {
       form.setError('slug', { message: 'An existing slug cannot be cleared.' });
       return;
@@ -135,7 +146,7 @@ function EditorForm({ initial }: { initial?: Article }) {
       () => toast.error('Check the highlighted fields before saving.'),
     )();
   return (
-    <>
+    <ImageUploadProvider onPendingChange={changeUploads}>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Button variant="outline" size="icon" asChild>
@@ -166,13 +177,17 @@ function EditorForm({ initial }: { initial?: Article }) {
           </Button>
           {writable && (
             <>
-              <Button variant="outline" disabled={pending} onClick={() => submit('save')}>
+              <Button
+                variant="outline"
+                disabled={pending || uploads > 0}
+                onClick={() => submit('save')}
+              >
                 {pending ? <Spinner /> : <Save />}
                 {article?.status === 'published' ? 'Save changes' : 'Save draft'}
               </Button>
               {reviewer && (
                 <Button
-                  disabled={pending}
+                  disabled={pending || uploads > 0}
                   onClick={() => submit(article?.status === 'published' ? 'unpublish' : 'publish')}
                 >
                   {article?.status === 'published' ? <Undo2 /> : <Send />}
@@ -294,7 +309,7 @@ function EditorForm({ initial }: { initial?: Article }) {
         publishedAt={article?.published_at}
       />
       {warning}
-    </>
+    </ImageUploadProvider>
   );
 }
 export default function EditorPage() {

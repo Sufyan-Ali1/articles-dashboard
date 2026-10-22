@@ -9,6 +9,7 @@ import { Input, Select, Textarea } from '@/components/ui/input';
 import { Card, ErrorState, Field } from '@/components/shared';
 import type { ArticleFormValues } from './validation';
 import { RichTextEditor } from './rich-text-editor';
+import { ImageUpload } from './image-upload';
 type PanelProps = { form: UseFormReturn<ArticleFormValues>; disabled: boolean };
 type ClassificationQuery = ReturnType<typeof useClassifications>;
 const merge = (available: Classification[] = [], selected: Classification[] = []) => [
@@ -330,11 +331,18 @@ export function FeaturedImagePanel({ form, disabled }: PanelProps) {
     <Card className="p-5">
       <h2 className="mb-4 text-sm font-semibold">Featured image</h2>
       <fieldset disabled={disabled} className="space-y-4">
+        <ImageUpload
+          id="featured-image-upload"
+          disabled={disabled}
+          onUploaded={(url) =>
+            form.setValue('featured_image', url, { shouldDirty: true, shouldValidate: true })
+          }
+        />
         <Field
           label="Image URL"
           htmlFor="featured-image"
           error={fieldError('featured_image')}
-          hint="Absolute HTTP(S) URL. Uploads are not supported."
+          hint="Upload a file or enter an absolute HTTP(S) URL."
         >
           <Input
             id="featured-image"
@@ -354,6 +362,16 @@ export function FeaturedImagePanel({ form, disabled }: PanelProps) {
             {...form.register('featured_image_alt')}
           />
         </Field>
+        {featuredImage && (
+          <Button
+            variant="outline"
+            onClick={() =>
+              form.setValue('featured_image', '', { shouldDirty: true, shouldValidate: true })
+            }
+          >
+            Remove featured image
+          </Button>
+        )}
         {featuredImage && !fieldError('featured_image') && (
           <img
             className="max-h-52 w-full rounded-md border object-cover"

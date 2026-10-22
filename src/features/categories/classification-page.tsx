@@ -17,7 +17,7 @@ import { Input, Select, Textarea } from '@/components/ui/input';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import {
-  Card,
+  TableCard,
   ConfirmDialog,
   EmptyState,
   ErrorState,
@@ -239,135 +239,143 @@ export default function ClassificationPage({ kind }: { kind: ClassificationKind 
           </Notice>
         </div>
       )}
-      <Card>
-        <div className="flex flex-wrap items-center gap-3 border-b p-4">
-          <SearchInput
-            value={list.search}
-            onChange={(value) => list.set('search', value)}
-            placeholder={`Search ${label.title.toLowerCase()}…`}
-          />
-          <span className="ml-auto text-xs text-muted-foreground">
-            {kind === 'categories'
-              ? `${all.data?.length ?? '—'} categories`
-              : `${page.data?.meta.total ?? '—'} ${label.title.toLowerCase()}`}
-          </span>
-          {kind !== 'categories' && (
-            <Select
-              aria-label="Sort classifications"
-              className="w-40"
-              value={list.sort}
-              onChange={(e) => list.set('sort', e.target.value)}
-            >
-              <option value="name">Name A–Z</option>
-              <option value="-name">Name Z–A</option>
-              <option value="-created_at">Newest first</option>
-              <option value="-updated_at">Recently updated</option>
-            </Select>
-          )}
-        </div>
-        {source.isPending ? (
-          <Loading />
-        ) : source.error ? (
-          <div className="p-5">
-            <ErrorState error={source.error} retry={() => void source.refetch()} />
-          </div>
-        ) : !rows.length ? (
-          <EmptyState
-            title={list.search ? 'No matches found' : `No ${label.title.toLowerCase()} yet`}
-            description={
-              list.search
-                ? 'Try a different search term.'
-                : `Create your first ${label.singular} to organize your content.`
-            }
-          >
-            {admin && !list.search && (
-              <Button onClick={() => setEditing('new')}>
-                <Plus />
-                New {label.singular}
-              </Button>
+      <TableCard>
+        <div className="table-controls">
+          <div className="flex flex-wrap items-center gap-3 border-b p-4">
+            <SearchInput
+              value={list.search}
+              onChange={(value) => list.set('search', value)}
+              placeholder={`Search ${label.title.toLowerCase()}…`}
+            />
+            <span className="ml-auto text-xs text-muted-foreground">
+              {kind === 'categories'
+                ? `${all.data?.length ?? '—'} categories`
+                : `${page.data?.meta.total ?? '—'} ${label.title.toLowerCase()}`}
+            </span>
+            {kind !== 'categories' && (
+              <Select
+                aria-label="Sort classifications"
+                className="w-40"
+                value={list.sort}
+                onChange={(e) => list.set('sort', e.target.value)}
+              >
+                <option value="name">Name A–Z</option>
+                <option value="-name">Name Z–A</option>
+                <option value="-created_at">Newest first</option>
+                <option value="-updated_at">Recently updated</option>
+              </Select>
             )}
-          </EmptyState>
-        ) : (
-          <>
-            <Table
-              label={label.title}
-              headings={['Name', 'Slug', 'Status', 'Created', ...(admin ? ['Actions'] : [])]}
+          </div>
+        </div>
+        <div className="table-content">
+          {source.isPending ? (
+            <Loading />
+          ) : source.error ? (
+            <div className="p-5">
+              <ErrorState error={source.error} retry={() => void source.refetch()} />
+            </div>
+          ) : !rows.length ? (
+            <EmptyState
+              title={list.search ? 'No matches found' : `No ${label.title.toLowerCase()} yet`}
+              description={
+                list.search
+                  ? 'Try a different search term.'
+                  : `Create your first ${label.singular} to organize your content.`
+              }
             >
-              {rows.map(({ record, depth }) => (
-                <tr key={record.id} className="group hover:bg-muted/30">
-                  <td className="min-w-56 px-5 py-4">
-                    <div
-                      className="flex items-start gap-3"
-                      style={{ paddingLeft: `${Math.min(depth, 12) * 18}px` }}
-                    >
-                      <div className="mt-0.5 rounded-md bg-primary/5 p-2 text-primary">
-                        <label.icon className="size-4" />
-                      </div>
-                      <div>
-                        <span className="font-medium">{record.name}</span>
-                        {record.description && (
-                          <p className="mt-1 line-clamp-1 max-w-md text-xs text-muted-foreground">
-                            {record.description}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 font-mono text-xs text-muted-foreground">
-                    {record.slug}
-                  </td>
-                  <td className="px-5 py-4">
-                    <Badge tone={record.is_active ? 'green' : 'neutral'}>
-                      {record.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-4 text-xs text-muted-foreground">
-                    {date(record.created_at)}
-                  </td>
-                  {admin && (
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => toggle.mutate(record)}
-                          disabled={toggle.isPending}
-                        >
-                          {record.is_active ? 'Deactivate' : 'Activate'}
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          aria-label={`Edit ${record.name}`}
-                          onClick={() => setEditing(record)}
-                        >
-                          <Pencil />
-                        </Button>
-                        <ConfirmDialog
-                          title={`Delete ${label.singular}?`}
-                          description={`“${record.name}” will be permanently removed. Referenced classifications and parent categories cannot be deleted.`}
-                          onConfirm={async () => {
-                            await classificationsApi.delete(kind, record.id);
-                            invalidate();
-                            toast.success(`${label.singular} deleted.`);
-                          }}
-                        >
-                          <Button variant="ghost" size="icon" aria-label={`Delete ${record.name}`}>
-                            <Trash2 className="text-destructive" />
-                          </Button>
-                        </ConfirmDialog>
+              {admin && !list.search && (
+                <Button onClick={() => setEditing('new')}>
+                  <Plus />
+                  New {label.singular}
+                </Button>
+              )}
+            </EmptyState>
+          ) : (
+            <>
+              <Table
+                label={label.title}
+                headings={['Name', 'Slug', 'Status', 'Created', ...(admin ? ['Actions'] : [])]}
+              >
+                {rows.map(({ record, depth }) => (
+                  <tr key={record.id} className="group hover:bg-muted/30">
+                    <td className="min-w-56 px-5 py-4">
+                      <div
+                        className="flex items-start gap-3"
+                        style={{ paddingLeft: `${Math.min(depth, 12) * 18}px` }}
+                      >
+                        <div className="mt-0.5 rounded-md bg-primary/5 p-2 text-primary">
+                          <label.icon className="size-4" />
+                        </div>
+                        <div>
+                          <span className="font-medium">{record.name}</span>
+                          {record.description && (
+                            <p className="mt-1 line-clamp-1 max-w-md text-xs text-muted-foreground">
+                              {record.description}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </td>
-                  )}
-                </tr>
-              ))}
-            </Table>
-          </>
-        )}
+                    <td className="px-5 py-4 font-mono text-xs text-muted-foreground">
+                      {record.slug}
+                    </td>
+                    <td className="px-5 py-4">
+                      <Badge tone={record.is_active ? 'green' : 'neutral'}>
+                        {record.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-4 text-xs text-muted-foreground">
+                      {date(record.created_at)}
+                    </td>
+                    {admin && (
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => toggle.mutate(record)}
+                            disabled={toggle.isPending}
+                          >
+                            {record.is_active ? 'Deactivate' : 'Activate'}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            aria-label={`Edit ${record.name}`}
+                            onClick={() => setEditing(record)}
+                          >
+                            <Pencil />
+                          </Button>
+                          <ConfirmDialog
+                            title={`Delete ${label.singular}?`}
+                            description={`“${record.name}” will be permanently removed. Referenced classifications and parent categories cannot be deleted.`}
+                            onConfirm={async () => {
+                              await classificationsApi.delete(kind, record.id);
+                              invalidate();
+                              toast.success(`${label.singular} deleted.`);
+                            }}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Delete ${record.name}`}
+                            >
+                              <Trash2 className="text-destructive" />
+                            </Button>
+                          </ConfirmDialog>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </Table>
+            </>
+          )}
+        </div>
         {kind !== 'categories' && page.data && !page.error && (
           <Pagination meta={page.data.meta} set={list.set} />
         )}
-      </Card>
+      </TableCard>
       <Dialog
         open={editing !== null}
         onOpenChange={(open) => {

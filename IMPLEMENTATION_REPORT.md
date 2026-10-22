@@ -72,7 +72,7 @@ The tests cover authentication/expiry/protected routes, permissions, API errors/
 
 ## Documented backend limitations and decisions
 
-- Memory-only sessions were explicitly selected. Page refresh requires login; no refresh-token/cookie/session API was added. Local logout cannot revoke a JWT.
+- Persistent sessions now use an HttpOnly refresh cookie, startup restoration, automatic token renewal, and server logout. Deploy with the backend refresh-session migration and credentialed CORS.
 - Automatic full view aggregation was explicitly selected. Metrics are nontransactional snapshots of raw API request counts, not visitor analytics.
 - Non-admin profiles are read-only. Admin profile edits use the already-supported user PATCH endpoint.
 - Uploads, server statistics/settings, scheduled publication, revision history, request-to-article generation, and optimistic concurrency protection are unavailable; no endpoints or database features were invented.

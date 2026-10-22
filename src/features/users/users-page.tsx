@@ -16,7 +16,7 @@ import { Input, Select } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog } from '@/components/ui/dialog';
 import {
-  Card,
+  TableCard,
   ConfirmDialog,
   EmptyState,
   ErrorState,
@@ -177,141 +177,145 @@ export default function UsersPage() {
           Add team member
         </Button>
       </PageHeader>
-      <Card>
-        <div className="flex flex-wrap gap-3 border-b p-4">
-          <SearchInput
-            placeholder="Search team member names…"
-            value={list.search}
-            onChange={(value) => list.set('search', value)}
-          />
-          <Select
-            aria-label="Sort users"
-            className="w-full sm:w-44"
-            value={list.sort}
-            onChange={(event) => list.set('sort', event.target.value)}
-          >
-            <option value="-created_at">Newest first</option>
-            <option value="name">Name A–Z</option>
-            <option value="email">Email A–Z</option>
-            <option value="role">Role</option>
-            <option value="-updated_at">Recently updated</option>
-          </Select>
-        </div>
-        {activate.error && (
-          <div className="p-4">
-            <ErrorState compact error={activate.error} />
-          </div>
-        )}
-        {query.isPending ? (
-          <Loading />
-        ) : query.error ? (
-          <div className="p-5">
-            <ErrorState error={query.error} retry={() => void query.refetch()} />
-          </div>
-        ) : !query.data.data.length ? (
-          <EmptyState
-            title="No team members found"
-            description="Try another name or add a new staff account."
-          />
-        ) : (
-          <>
-            <Table
-              label="Team members"
-              headings={['Team member', 'Role', 'Status', 'Joined', 'Actions']}
+      <TableCard>
+        <div className="table-controls">
+          <div className="flex flex-wrap gap-3 border-b p-4">
+            <SearchInput
+              placeholder="Search team member names…"
+              value={list.search}
+              onChange={(value) => list.set('search', value)}
+            />
+            <Select
+              aria-label="Sort users"
+              className="w-full sm:w-44"
+              value={list.sort}
+              onChange={(event) => list.set('sort', event.target.value)}
             >
-              {query.data.data.map((member) => (
-                <tr key={member.id} className="hover:bg-muted/30">
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/8 text-xs font-semibold text-primary">
-                        {initials(member.name)}
-                      </span>
-                      <div>
-                        <p className="font-medium">
-                          {member.name}
-                          {member.id === user?.id && (
-                            <span className="ml-2 text-[10px] text-muted-foreground">You</span>
-                          )}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">{member.email}</p>
+              <option value="-created_at">Newest first</option>
+              <option value="name">Name A–Z</option>
+              <option value="email">Email A–Z</option>
+              <option value="role">Role</option>
+              <option value="-updated_at">Recently updated</option>
+            </Select>
+          </div>
+          {activate.error && (
+            <div className="p-4">
+              <ErrorState compact error={activate.error} />
+            </div>
+          )}
+        </div>
+        <div className="table-content">
+          {query.isPending ? (
+            <Loading />
+          ) : query.error ? (
+            <div className="p-5">
+              <ErrorState error={query.error} retry={() => void query.refetch()} />
+            </div>
+          ) : !query.data.data.length ? (
+            <EmptyState
+              title="No team members found"
+              description="Try another name or add a new staff account."
+            />
+          ) : (
+            <>
+              <Table
+                label="Team members"
+                headings={['Team member', 'Role', 'Status', 'Joined', 'Actions']}
+              >
+                {query.data.data.map((member) => (
+                  <tr key={member.id} className="hover:bg-muted/30">
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/8 text-xs font-semibold text-primary">
+                          {initials(member.name)}
+                        </span>
+                        <div>
+                          <p className="font-medium">
+                            {member.name}
+                            {member.id === user?.id && (
+                              <span className="ml-2 text-[10px] text-muted-foreground">You</span>
+                            )}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">{member.email}</p>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <Badge
-                      tone={
-                        member.role === 'admin'
-                          ? 'purple'
-                          : member.role === 'editor'
-                            ? 'blue'
-                            : 'neutral'
-                      }
-                    >
-                      {member.role === 'admin' ? (
-                        <Shield className="size-3" />
-                      ) : (
-                        <UserRound className="size-3" />
-                      )}
-                      <span className="capitalize">{member.role}</span>
-                    </Badge>
-                  </td>
-                  <td className="px-5 py-4">
-                    <Badge tone={member.is_active ? 'green' : 'neutral'}>
-                      {member.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-4 text-xs text-muted-foreground">
-                    {date(member.created_at)}
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Edit ${member.name}`}
-                        onClick={() => setEditing(member)}
+                    </td>
+                    <td className="px-5 py-4">
+                      <Badge
+                        tone={
+                          member.role === 'admin'
+                            ? 'purple'
+                            : member.role === 'editor'
+                              ? 'blue'
+                              : 'neutral'
+                        }
                       >
-                        <Pencil />
-                      </Button>
-                      {member.is_active ? (
-                        <ConfirmDialog
-                          title="Deactivate account?"
-                          description={`“${member.name}” will lose access immediately. Their articles and audit history will be preserved. The last active admin cannot be deactivated.`}
-                          onConfirm={async () => {
-                            await usersApi.deactivate(member.id);
-                            await client.invalidateQueries({ queryKey: ['users'] });
-                            await client.invalidateQueries({ queryKey: ['logs'] });
-                            if (member.id === user?.id) await refreshUser();
-                            toast.success('Account deactivated.');
-                          }}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Deactivate ${member.name}`}
-                          >
-                            <UserRoundX className="text-destructive" />
-                          </Button>
-                        </ConfirmDialog>
-                      ) : (
+                        {member.role === 'admin' ? (
+                          <Shield className="size-3" />
+                        ) : (
+                          <UserRound className="size-3" />
+                        )}
+                        <span className="capitalize">{member.role}</span>
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-4">
+                      <Badge tone={member.is_active ? 'green' : 'neutral'}>
+                        {member.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-4 text-xs text-muted-foreground">
+                      {date(member.created_at)}
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex gap-1">
                         <Button
                           variant="ghost"
-                          size="sm"
-                          disabled={activate.isPending}
-                          onClick={() => activate.mutate(member.id)}
+                          size="icon"
+                          aria-label={`Edit ${member.name}`}
+                          onClick={() => setEditing(member)}
                         >
-                          Activate
+                          <Pencil />
                         </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </Table>
-          </>
-        )}
+                        {member.is_active ? (
+                          <ConfirmDialog
+                            title="Deactivate account?"
+                            description={`“${member.name}” will lose access immediately. Their articles and audit history will be preserved. The last active admin cannot be deactivated.`}
+                            onConfirm={async () => {
+                              await usersApi.deactivate(member.id);
+                              await client.invalidateQueries({ queryKey: ['users'] });
+                              await client.invalidateQueries({ queryKey: ['logs'] });
+                              if (member.id === user?.id) await refreshUser();
+                              toast.success('Account deactivated.');
+                            }}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Deactivate ${member.name}`}
+                            >
+                              <UserRoundX className="text-destructive" />
+                            </Button>
+                          </ConfirmDialog>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={activate.isPending}
+                            onClick={() => activate.mutate(member.id)}
+                          >
+                            Activate
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </Table>
+            </>
+          )}
+        </div>
         {query.data && !query.error && <Pagination meta={query.data.meta} set={list.set} />}
-      </Card>
+      </TableCard>
       <Dialog
         open={editing !== null}
         onOpenChange={(open) => {

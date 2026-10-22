@@ -39,10 +39,11 @@ Frontend validation covers field lengths, ASCII slug format, safe URLs, JSON val
 
 ## Capability boundaries
 
-- There are no refresh tokens, cookies, server logout, or bearer-token revocation. Tokens remain in memory. Reload requires login.
+- Login sets an HttpOnly refresh cookie. `POST /auth/refresh` rotates it and returns the existing token envelope; `POST /auth/logout` revokes the session and returns 204. These three requests include credentials and `X-CSRF-Protection: 1`. Access tokens remain in memory. Reload restores the session before protected routing. The backend requires migration `0002_refresh_sessions` and credentialed CORS for the dashboard origin.
 - Only admins can update user records, including their own name/email. Editors/authors have read-only profiles.
 - Reviewer and audit actor fields are UUIDs. Admins can resolve them through authorized `/users` reads. Editors see the reviewer ID or their own known name.
-- No image upload, statistics, backend settings, persistent drafts, revision history, automatic request-to-article generation, or scheduling API exists.
+- No statistics, backend settings, persistent drafts, revision history, automatic request-to-article generation, or scheduling API exists.
+- Authenticated `POST /media/images` accepts raw image bytes and returns `data.secure_url` and `data.public_id`. Featured and inline images upload immediately. Unused managed images are cleaned up after a 24-hour grace period; saved article references protect shared images. Backend Cloudinary credentials and the media migration are required.
 - Public article detail increments views. Dashboard preview never calls it.
 - No ETag/version/precondition contract exists. The UI cannot promise conflict detection for concurrent editors.
 - Backend errors are authoritative for last-admin protection, category cycles, inactive references, and conflicting slugs.

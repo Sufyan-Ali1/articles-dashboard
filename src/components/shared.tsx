@@ -46,6 +46,10 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
     <section className={`rounded-xl border bg-card shadow-xs ${className}`}>{children}</section>
   );
 }
+// Keep the results area stable across loading, empty, and populated states.
+export function TableCard({ children }: { children: ReactNode }) {
+  return <Card className="table-card">{children}</Card>;
+}
 export function ErrorState({
   error,
   retry,
@@ -344,7 +348,7 @@ export function Table({
   label: string;
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="table-scroll" tabIndex={0} role="region" aria-label={`${label} table content`}>
       <table aria-label={label} className="w-full text-left text-sm">
         <thead>
           <tr className="border-b bg-muted/35">

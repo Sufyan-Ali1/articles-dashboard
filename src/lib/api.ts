@@ -16,9 +16,18 @@ export class ApiError extends Error {
 type SessionAccess = { token: string | null; epoch: number; expire: () => void };
 const errorName = (error: unknown) =>
   typeof error === 'object' && error !== null && 'name' in error ? String(error.name) : '';
+let renewSession: (() => Promise<void>) | null = null;
+export function setSessionRenewal(renew: (() => Promise<void>) | null) {
+  renewSession = renew;
+}
 let session: SessionAccess = { token: null, epoch: 0, expire: () => undefined };
-export function setApiSession(token: string | null, expire: () => void) {
-  session = { token, expire, epoch: session.epoch + 1 };
+export function setApiSession(token: string | null, expire: () => void, preserveEpoch = false) {
+  session = { token, expire, epoch: session.epoch + (preserveEpoch ? 0 : 1) };
+}
+export async function withSessionLock<T>(work: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== 'undefined' && navigator.locks)
+    return navigator.locks.request('blog-auth-session', work);
+  return work();
 }
 export function getApiEpoch() {
   return session.epoch;
@@ -62,10 +71,12 @@ export async function api<T>(
   options: {
     method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
     body?: unknown;
+    rawBody?: Blob;
     params?: object;
     signal?: AbortSignal;
     token?: string | null;
     anonymous?: boolean;
+    retried?: boolean;
   } = {},
 ): Promise<T> {
   const captured = session;
@@ -86,14 +97,23 @@ export async function api<T>(
     const response = await fetch(`${apiBase()}${path}${queryString(options.params)}`, {
       method: options.method ?? 'GET',
       signal: controller.signal,
-      credentials: 'omit',
+      credentials: path.startsWith('/auth/') ? 'include' : 'omit',
       cache: 'no-store',
       headers: {
         Accept: 'application/json',
+        ...(path.startsWith('/auth/') ? { 'X-CSRF-Protection': '1' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(options.rawBody
+          ? { 'Content-Type': options.rawBody.type || 'application/octet-stream' }
+          : options.body === undefined
+            ? {}
+            : { 'Content-Type': 'application/json' }),
       },
-      ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+      ...(options.rawBody
+        ? { body: options.rawBody }
+        : options.body === undefined
+          ? {}
+          : { body: JSON.stringify(options.body) }),
     });
     const payload: unknown =
       response.status === 204
@@ -102,6 +122,19 @@ export async function api<T>(
             if (['AbortError', 'TimeoutError'].includes(errorName(error))) throw error;
             return null;
           });
+    if (
+      response.status === 401 &&
+      token &&
+      options.token === undefined &&
+      !options.anonymous &&
+      !options.retried &&
+      renewSession &&
+      captured.epoch === session.epoch
+    ) {
+      if (token === session.token) await renewSession();
+      if (captured.epoch !== session.epoch) throw new DOMException('Session changed', 'AbortError');
+      return api<T>(path, { ...options, retried: true });
+    }
     if (token && captured.epoch !== session.epoch && options.token === undefined)
       throw new DOMException('Session changed', 'AbortError');
     if (!response.ok) {

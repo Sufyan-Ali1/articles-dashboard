@@ -24,7 +24,7 @@ const routes = [
 ];
 async function signIn() {
   const interaction = userEvent.setup();
-  await interaction.type(screen.getByLabelText('Email address'), 'alex@example.test');
+  await interaction.type(await screen.findByLabelText('Email address'), 'alex@example.test');
   await interaction.type(screen.getByLabelText('Password', { exact: true }), 'a-secure-password');
   await interaction.click(screen.getByRole('button', { name: 'Sign in' }));
   return interaction;
@@ -41,7 +41,7 @@ describe('staff authentication', () => {
     const login = vi.fn();
     server.use(http.post(`${base}/auth/login`, login));
     renderRoutes(routes, '/login');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign in' }));
     expect(await screen.findByText('Enter your password.')).toBeInTheDocument();
     expect(login).not.toHaveBeenCalled();
   });
@@ -104,13 +104,59 @@ describe('staff authentication', () => {
     expect(await screen.findByText('Access restricted')).toBeInTheDocument();
     expect(screen.queryByText('Private users')).not.toBeInTheDocument();
   });
-  it('does not restore the session after a full provider remount', async () => {
+  it('restores the session after a full provider remount', async () => {
     const first = renderRoutes(routes, '/login');
     await signIn();
     await screen.findByRole('heading', { name: 'Signed in: Alex Morgan' });
     first.unmount();
+    server.use(
+      http.post(`${base}/auth/refresh`, () =>
+        HttpResponse.json({
+          data: { access_token: 'restored-token', expires_in: 1800, token_type: 'bearer' },
+        }),
+      ),
+    );
     const second = renderRoutes(routes, '/dashboard');
-    await waitFor(() => expect(second.router.state.location.pathname).toBe('/login'));
+    await screen.findByRole('heading', { name: 'Signed in: Alex Morgan' });
+    expect(second.router.state.location.pathname).toBe('/dashboard');
+  });
+  it('keeps a temporary restoration failure retryable', async () => {
+    server.use(http.post(`${base}/auth/refresh`, () => HttpResponse.error()));
+    const { router } = renderRoutes(routes, '/dashboard');
+    await screen.findByRole('button', { name: 'Retry' });
+    expect(router.state.location.pathname).toBe('/dashboard');
+    server.use(
+      http.post(`${base}/auth/refresh`, ({ request }) => {
+        expect(request.credentials).toBe('include');
+        expect(request.headers.get('X-CSRF-Protection')).toBe('1');
+        return HttpResponse.json({
+          data: { access_token: 'retry-token', expires_in: 1800, token_type: 'bearer' },
+        });
+      }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await screen.findByRole('heading', { name: 'Signed in: Alex Morgan' });
+  });
+  it('automatically renews a short-lived access token without signing out', async () => {
+    server.use(
+      http.post(`${base}/auth/login`, () =>
+        HttpResponse.json({
+          data: { access_token: 'brief-token', token_type: 'bearer', expires_in: 0.3 },
+        }),
+      ),
+    );
+    renderRoutes(routes, '/login');
+    await signIn();
+    await screen.findByRole('heading', { name: 'Signed in: Alex Morgan' });
+    const renew = vi.fn(() =>
+      HttpResponse.json({
+        data: { access_token: 'renewed-token', token_type: 'bearer', expires_in: 1800 },
+      }),
+    );
+    server.use(http.post(`${base}/auth/refresh`, renew));
+    await waitFor(() => expect(renew).toHaveBeenCalledTimes(1), { timeout: 2500 });
+    expect(screen.getByRole('heading', { name: 'Signed in: Alex Morgan' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Sign in' })).not.toBeInTheDocument();
   });
   it('expires short-lived sessions automatically', async () => {
     server.use(
@@ -124,7 +170,7 @@ describe('staff authentication', () => {
     await signIn();
     await screen.findByRole('heading', { name: 'Signed in: Alex Morgan' });
     expect(
-      await screen.findByRole('heading', { name: 'Sign in to your workspace' }),
+      await screen.findByRole('heading', { name: 'Sign in to your workspace' }, { timeout: 2500 }),
     ).toBeInTheDocument();
   });
   it('hides review and administration navigation from authors', async () => {

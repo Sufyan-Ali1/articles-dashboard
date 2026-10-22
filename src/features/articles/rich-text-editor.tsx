@@ -31,6 +31,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Field, Notice } from '@/components/shared';
 import { cn } from '@/lib/utils';
 import { safeUrl } from './validation';
+import { ImageUpload } from './image-upload';
 
 export function unsupportedMarkup(html: string): boolean {
   const document = new DOMParser().parseFromString(html, 'text/html');
@@ -136,7 +137,7 @@ export function RichTextEditor({
         'aria-label': 'Article content',
         'aria-multiline': 'true',
         class:
-          'prose prose-slate dark:prose-invert max-w-none min-h-[420px] outline-none px-6 py-7 sm:px-9 break-words',
+          'prose prose-slate dark:prose-invert max-w-none h-[420px] sm:h-[480px] overflow-auto overscroll-contain outline-none px-6 py-7 sm:px-9 break-words',
       },
     },
     onUpdate: ({ editor: updated }) => onChange(updated.getHTML()),
@@ -174,7 +175,7 @@ export function RichTextEditor({
   useEffect(() => {
     editor?.setEditable(!readOnly, false);
   }, [editor, readOnly]);
-  if (!editor) return <div className="min-h-96 animate-pulse bg-muted/20" />;
+  if (!editor) return <div className="h-[420px] animate-pulse bg-muted/20 sm:h-[480px]" />;
   const toolbar = [
     {
       label: 'Bold',
@@ -385,7 +386,7 @@ export function RichTextEditor({
           <Textarea
             id={id}
             aria-label="Article content HTML"
-            className="mt-3 min-h-[420px] font-mono text-xs leading-6"
+            className="mt-3 h-[420px] resize-none overflow-auto overscroll-contain font-mono text-xs leading-6 sm:h-[480px]"
             value={value}
             readOnly={readOnly}
             onChange={(e) => onChange(e.target.value)}
@@ -454,7 +455,11 @@ export function RichTextEditor({
           if (!open) setDialog(null);
         }}
         title={dialog === 'image' ? 'Insert image' : 'Insert link'}
-        description="Use a safe HTTP(S) URL or root-relative path. Image uploads are not supported."
+        description={
+          dialog === 'image'
+            ? 'Upload an image or enter its URL, then choose Insert image.'
+            : 'Use a safe HTTP(S) URL or root-relative path.'
+        }
       >
         <form
           className="space-y-4"
@@ -470,6 +475,16 @@ export function RichTextEditor({
             setDialog(null);
           }}
         >
+          {dialog === 'image' && (
+            <ImageUpload
+              id="inline-image-upload"
+              disabled={readOnly}
+              onUploaded={(uploaded) => {
+                setUrl(uploaded);
+                setUrlError('');
+              }}
+            />
+          )}
           <Field label="URL" htmlFor="insert-url" error={urlError}>
             <Input
               autoFocus

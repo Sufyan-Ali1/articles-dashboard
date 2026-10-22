@@ -3,6 +3,13 @@ import { setupServer } from 'msw/node';
 import { admin, article, classification, page } from './fixtures';
 export const base = 'http://localhost:8000/api/v1';
 export const server = setupServer(
+  http.post(`${base}/auth/refresh`, () =>
+    HttpResponse.json(
+      { error: { code: 'unauthorized', message: 'No saved session' } },
+      { status: 401 },
+    ),
+  ),
+  http.post(`${base}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
   http.post(`${base}/auth/login`, () =>
     HttpResponse.json({
       data: { access_token: 'test-access-token', token_type: 'bearer', expires_in: 1800 },
