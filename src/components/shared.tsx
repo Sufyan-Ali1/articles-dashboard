@@ -131,6 +131,17 @@ export function Loading({ rows = 5 }: { rows?: number }) {
 export function Spinner() {
   return <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />;
 }
+export function AppLoading() {
+  return (
+    <div
+      role="status"
+      aria-label="Loading"
+      className="flex min-h-dvh items-center justify-center text-primary"
+    >
+      <Spinner />
+    </div>
+  );
+}
 export function Field({
   label,
   htmlFor,

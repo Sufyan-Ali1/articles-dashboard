@@ -1,5 +1,13 @@
 import { http, HttpResponse, delay } from 'msw';
-import { api, ApiError, collectPages, queryString, setApiSession, setSessionRenewal } from './api';
+import {
+  api,
+  apiBase,
+  ApiError,
+  collectPages,
+  queryString,
+  setApiSession,
+  setSessionRenewal,
+} from './api';
 import { base, server } from '@/test/server';
 import { page } from '@/test/fixtures';
 describe('API integration boundary', () => {
@@ -141,5 +149,17 @@ describe('API integration boundary', () => {
     await expect(collectPages('/admin/articles')).rejects.toMatchObject({
       code: 'collection_changed',
     });
+  });
+});
+
+describe('same-origin API configuration', () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it('accepts a root-relative API prefix for first-party refresh cookies', () => {
+    vi.stubEnv('VITE_API_BASE_URL', '/api/v1');
+    expect(apiBase()).toBe('/api/v1');
+  });
+  it('rejects protocol-relative URLs', () => {
+    vi.stubEnv('VITE_API_BASE_URL', '//another.example/api/v1');
+    expect(() => apiBase()).toThrow('VITE_API_BASE_URL must be');
   });
 });

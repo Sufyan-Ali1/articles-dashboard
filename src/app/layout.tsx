@@ -27,7 +27,7 @@ import { cn, initials } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { hasUnsavedChanges } from '@/lib/unsaved';
-import { EmptyState } from '@/components/shared';
+import { EmptyState, Loading, Spinner } from '@/components/shared';
 export const navigation = [
   { path: 'dashboard', label: 'Overview', icon: LayoutDashboard, group: 'Workspace' },
   { path: 'articles', label: 'Articles', icon: FileText, group: 'Workspace' },
@@ -43,12 +43,7 @@ export const navigation = [
 export function ProtectedRoute({ roles }: { roles?: string[] }) {
   const { user, initializing, sessionError, restoreSession } = useAuth();
   const location = useLocation();
-  if (initializing)
-    return (
-      <div role="status" className="p-8">
-        Restoring your session…
-      </div>
-    );
+  if (initializing) return <Layout restoring />;
   if (sessionError)
     return (
       <div className="p-8">
@@ -71,7 +66,7 @@ export function ProtectedRoute({ roles }: { roles?: string[] }) {
     );
   return <Outlet />;
 }
-export default function Layout() {
+export default function Layout({ restoring = false }: { restoring?: boolean }) {
   const { user, logout } = useAuth();
   const { preferences, update } = usePreferences();
   const [mobile, setMobile] = useState(false);
@@ -95,7 +90,9 @@ export default function Layout() {
   useEffect(() => {
     document.title = `${current?.label ?? 'Workspace'} · Blog Admin`;
   }, [current]);
-  if (!user) return null;
+  if (!user && !restoring) return null;
+  const accountName = user?.name ?? 'Your account';
+  const accountRole = user?.role ?? 'author';
   const sidebar = (compact: boolean) => (
     <>
       <Link
@@ -135,7 +132,7 @@ export default function Layout() {
       <nav aria-label="Main navigation" className="flex-1 overflow-y-auto px-3">
         {['Workspace', 'Content', 'Administration', 'Account'].map((group) => {
           const items = navigation.filter(
-            (item) => item.group === group && allowedPage(user.role, item.path),
+            (item) => item.group === group && (restoring || allowedPage(accountRole, item.path)),
           );
           if (!items.length) return null;
           return (
@@ -187,13 +184,13 @@ export default function Layout() {
           aria-label="My profile"
           className="flex size-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
         >
-          {initials(user.name)}
+          {initials(accountName)}
         </Link>
         {!compact && (
           <Link to="/profile" className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold">{user.name}</p>
+            <p className="truncate text-xs font-semibold">{accountName}</p>
             <p className="mt-0.5 text-[10px] capitalize text-muted-foreground">
-              {user.role} account
+              {accountRole} account
             </p>
           </Link>
         )}
@@ -214,127 +211,160 @@ export default function Layout() {
     </>
   );
   return (
-    <div>
-      <Dialog
-        open={logoutWarning}
-        onOpenChange={setLogoutWarning}
-        title="Log out without saving?"
-        description="Your article has unsaved changes. Save your work first or discard it to log out."
-      >
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setLogoutWarning(false)}>
-            Keep editing
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => {
-              setLogoutWarning(false);
-              logout();
-            }}
-          >
-            Discard & log out
-          </Button>
-        </div>
-      </Dialog>
-      <a
-        href="#main-content"
-        className="sr-only z-[100] rounded bg-primary p-3 text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
-      >
-        Skip to content
-      </a>
-      <aside
-        className={cn(
-          'fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-sidebar md:flex',
-          collapsed ? 'w-[76px]' : 'w-[240px]',
-        )}
-      >
-        {sidebar(collapsed)}
-      </aside>
-      <Dialog
-        open={mobile}
-        onOpenChange={setMobile}
-        title="Navigation"
-        className="left-0 top-0 h-dvh max-h-dvh w-72 max-w-none translate-x-0 translate-y-0 rounded-none p-0 [&>h2]:sr-only [&>p]:sr-only [&>div:last-child]:mt-0"
-      >
-        <div className="flex h-dvh flex-col">{sidebar(false)}</div>
-      </Dialog>
+    <>
       <div
-        className={cn(
-          'min-h-dvh',
-          tablePage && 'table-page',
-          collapsed ? 'md:pl-[76px]' : 'md:pl-[240px]',
-        )}
+        inert={restoring}
+        aria-hidden={restoring || undefined}
+        className={cn(restoring && 'pointer-events-none select-none blur-[3px]')}
       >
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b bg-card/95 px-5 backdrop-blur-sm sm:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              aria-label="Open navigation"
-              onClick={() => setMobile(true)}
-            >
-              <Menu />
+        <Dialog
+          open={logoutWarning}
+          onOpenChange={setLogoutWarning}
+          title="Log out without saving?"
+          description="Your article has unsaved changes. Save your work first or discard it to log out."
+        >
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setLogoutWarning(false)}>
+              Keep editing
             </Button>
             <Button
-              variant="ghost"
-              size="icon"
-              className="hidden md:inline-flex"
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              onClick={() => update({ collapsed: !collapsed })}
+              variant="destructive"
+              onClick={() => {
+                setLogoutWarning(false);
+                logout();
+              }}
             >
-              {collapsed ? <ChevronsRight /> : <ChevronsLeft />}
+              Discard & log out
             </Button>
-            <nav aria-label="Breadcrumb" className="flex items-center gap-2 truncate text-xs">
-              <Link className="text-muted-foreground" to="/dashboard">
-                Workspace
-              </Link>
-              <ChevronRight className="size-3 text-muted-foreground" />
-              <span className="font-medium">{current?.label ?? 'Page'}</span>
-              {location.pathname.split('/').length > 2 && (
-                <>
-                  <ChevronRight className="size-3 text-muted-foreground" />
-                  <span>{location.pathname.endsWith('/new') ? 'New article' : 'Details'}</span>
-                </>
-              )}
-            </nav>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <span className="hidden text-xs text-muted-foreground sm:block">
-              {new Intl.DateTimeFormat(undefined, {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-              }).format(new Date())}
-            </span>
-            <span className="h-5 border-l" />
-            <Link
-              to="/profile"
-              className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary"
-              aria-label="My profile"
-            >
-              {initials(user.name)}
-            </Link>
-          </div>
-        </header>
-        <main
-          id="main-content"
-          tabIndex={-1}
+        </Dialog>
+        <a
+          href="#main-content"
+          className="sr-only z-[100] rounded bg-primary p-3 text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+        >
+          Skip to content
+        </a>
+        <aside
           className={cn(
-            'mx-auto w-full max-w-[1600px] px-5 py-7 outline-none sm:px-8 lg:px-10 lg:py-9',
-            tablePage && 'table-page-main',
+            'fixed inset-y-0 left-0 z-30 hidden flex-col border-r bg-sidebar md:flex',
+            collapsed ? 'w-[76px]' : 'w-[240px]',
           )}
         >
-          <Outlet />
-        </main>
-        <footer className="mx-5 mt-8 flex flex-wrap justify-between gap-2 border-t py-5 text-[10px] text-muted-foreground sm:mx-8 lg:mx-10">
-          <span>Blog Admin · Editorial workspace</span>
-          <Link to="/profile" className="inline-flex items-center gap-1">
-            Signed in as {user.name}
-            <ArrowUpRight className="size-3" />
-          </Link>
-        </footer>
+          {sidebar(collapsed)}
+        </aside>
+        <Dialog
+          open={mobile}
+          onOpenChange={setMobile}
+          title="Navigation"
+          className="left-0 top-0 h-dvh max-h-dvh w-72 max-w-none translate-x-0 translate-y-0 rounded-none p-0 [&>h2]:sr-only [&>p]:sr-only [&>div:last-child]:mt-0"
+        >
+          <div className="flex h-dvh flex-col">{sidebar(false)}</div>
+        </Dialog>
+        <div
+          className={cn(
+            'min-h-dvh',
+            tablePage && 'table-page',
+            collapsed ? 'md:pl-[76px]' : 'md:pl-[240px]',
+          )}
+        >
+          <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b bg-card/95 px-5 backdrop-blur-sm sm:px-8">
+            <div className="flex min-w-0 items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                aria-label="Open navigation"
+                onClick={() => setMobile(true)}
+              >
+                <Menu />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hidden md:inline-flex"
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                onClick={() => update({ collapsed: !collapsed })}
+              >
+                {collapsed ? <ChevronsRight /> : <ChevronsLeft />}
+              </Button>
+              <nav aria-label="Breadcrumb" className="flex items-center gap-2 truncate text-xs">
+                <Link className="text-muted-foreground" to="/dashboard">
+                  Workspace
+                </Link>
+                <ChevronRight className="size-3 text-muted-foreground" />
+                <span className="font-medium">{current?.label ?? 'Page'}</span>
+                {location.pathname.split('/').length > 2 && (
+                  <>
+                    <ChevronRight className="size-3 text-muted-foreground" />
+                    <span>{location.pathname.endsWith('/new') ? 'New article' : 'Details'}</span>
+                  </>
+                )}
+              </nav>
+            </div>
+            <div className="flex shrink-0 items-center gap-3">
+              <span className="hidden text-xs text-muted-foreground sm:block">
+                {new Intl.DateTimeFormat(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                }).format(new Date())}
+              </span>
+              <span className="h-5 border-l" />
+              <Link
+                to="/profile"
+                className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary"
+                aria-label="My profile"
+              >
+                {initials(accountName)}
+              </Link>
+            </div>
+          </header>
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className={cn(
+              'mx-auto w-full max-w-[1600px] px-5 py-7 outline-none sm:px-8 lg:px-10 lg:py-9',
+              tablePage && 'table-page-main',
+            )}
+          >
+            {restoring ? (
+              <div
+                className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden"
+                aria-hidden="true"
+              >
+                <div className="space-y-3">
+                  <div className="h-7 w-48 rounded bg-muted" />
+                  <div className="h-4 w-72 max-w-full rounded bg-muted" />
+                </div>
+                <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-card">
+                  <div className="h-16 border-b" />
+                  <Loading rows={7} />
+                </div>
+              </div>
+            ) : (
+              <Outlet />
+            )}
+          </main>
+          <footer className="mx-5 mt-8 flex flex-wrap justify-between gap-2 border-t py-5 text-[10px] text-muted-foreground sm:mx-8 lg:mx-10">
+            <span>Blog Admin · Editorial workspace</span>
+            <Link to="/profile" className="inline-flex items-center gap-1">
+              Signed in as {accountName}
+              <ArrowUpRight className="size-3" />
+            </Link>
+          </footer>
+        </div>
       </div>
-    </div>
+      {restoring && (
+        <div
+          role="status"
+          aria-label="Loading"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/20"
+        >
+          <div className="rounded-xl border bg-card p-4 text-primary shadow-lg [&>svg]:size-6">
+            <Spinner />
+          </div>
+        </div>
+      )}
+    </>
   );
 }

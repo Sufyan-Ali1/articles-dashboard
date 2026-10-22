@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { Outlet } from 'react-router-dom';
@@ -197,4 +197,32 @@ describe('staff authentication', () => {
     expect(screen.queryByRole('link', { name: 'Article requests' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Create article/i })).toBeInTheDocument();
   });
+});
+
+it('keeps the dashboard layout behind a loading overlay at the current URL during session restoration', async () => {
+  let completeRefresh!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    completeRefresh = resolve;
+  });
+  server.use(
+    http.post(`${base}/auth/refresh`, async () => {
+      await ready;
+      return HttpResponse.json({
+        data: { access_token: 'restored-token', token_type: 'bearer', expires_in: 1800 },
+      });
+    }),
+  );
+  const { router } = renderRoutes(routes, '/dashboard');
+  expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument();
+  expect(screen.getByText('Editorial workspace')).toBeInTheDocument();
+  expect(screen.getByText('Editorial workspace').closest('[inert]')).toHaveAttribute(
+    'aria-hidden',
+    'true',
+  );
+  expect(screen.queryByRole('heading', { name: /Signed in:/ })).not.toBeInTheDocument();
+  expect(router.state.location.pathname).toBe('/dashboard');
+  await act(async () => completeRefresh());
+  expect(await screen.findByRole('heading', { name: /Signed in:/ })).toBeInTheDocument();
+  expect(screen.queryByRole('status', { name: 'Loading' })).not.toBeInTheDocument();
+  expect(router.state.location.pathname).toBe('/dashboard');
 });

@@ -23,7 +23,7 @@ This is an npm Arborist peer-resolution crash. Vitest is pinned to `4.1.11` so i
 
 Tiptap's core and optional menu extensions are pinned to `3.30.1`; Prettier is pinned to `3.9.8`. Use fresh registry metadata rather than `--prefer-offline` after an `ETARGET` failure. If an interrupted install leaves truncated native binaries, rebuild the generated `node_modules` directory. Keep the npm cache so valid downloads can be reused.
 
-Open the Vite URL printed in the terminal. The API must be running separately. Set `VITE_API_BASE_URL` to its **full API prefix**, for example `http://127.0.0.1:8000/api/v1`. Restart Vite after changing environment variables. A missing or invalid value produces a configuration screen rather than fabricated data.
+Open the Vite URL printed in the terminal. The API must be running separately. Set `VITE_API_BASE_URL` to `/api/v1` when using the Worker proxy, or to its **full API prefix**, for example `http://127.0.0.1:8000/api/v1`. Restart Vite after changing environment variables. A missing or invalid value produces a configuration screen rather than fabricated data.
 
 The initial administrator must already exist in the backend. Follow the backend's administrator bootstrap instructions; this dashboard does not register accounts or modify database configuration.
 
@@ -99,18 +99,20 @@ In `Blogs_Backend`, configure `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and
 
 Counts use existing filtered administrative list metadata. Total views loads all article-summary pages in batches of 100, at most three concurrent page requests, and caches the completed sum for five minutes. Partial/inconsistent results are never presented as a complete total. These are nontransactional snapshots of raw API request counts, including bots—not unique visitors. Authors see only their own article metrics; request information is restricted to admins/editors.
 
-## Cloudflare Pages
+## Cloudflare Workers deployment and persistent login
 
-1. Install dependencies with network access, commit the generated lockfile, and pass `npm run check`.
-2. Connect this repository to Cloudflare Pages, or upload a locally verified production build.
-3. Set build command to `npm run build` and output directory to `dist`.
-4. Set `NODE_VERSION=22` and `VITE_API_BASE_URL=https://your-api.example.com/api/v1` for each intended production/preview environment.
-5. Have the backend operator allowlist the exact Pages/custom-domain origin in `CORS_ORIGINS`. No backend files are changed by this project. Wildcard origins are not supported by the backend's configuration.
-6. Deploy, then test login and refresh `/articles`, `/articles/new`, and `/settings` directly.
+The dashboard and Render API are on different sites. Direct cross-site refresh cookies may be blocked by browsers, especially Safari. The included Worker proxies `/api/v1/*` to Render so the refresh cookie belongs to the dashboard origin.
 
-Pages serves `index.html` for unknown navigation paths when there is no top-level `404.html`. This project intentionally omits that file and uses React Router for in-app not-found screens. See [Cloudflare's SPA documentation](https://developers.cloudflare.com/pages/configuration/serving-pages/). Existing static assets still resolve normally.
+1. Deploy using the checked-in `wrangler.toml`, with deploy command `npx wrangler deploy` rather than an assets-only deployment. Its build command sets `VITE_API_BASE_URL=/api/v1`, including when an older absolute URL exists in `.env`.
+2. If Cloudflare runs `npm run build` separately, set its build environment variable `VITE_API_BASE_URL=/api/v1`. `API_ORIGIN=https://articles-management.onrender.com` is a server-side Worker variable, defined in `wrangler.toml`.
+3. Keep the exact dashboard origin in the backend `CORS_ORIGINS`, set `ENVIRONMENT=production`, and use `REFRESH_COOKIE_SAMESITE=lax` with this same-origin proxy. Restart Render after changing its environment. Do not add a cookie Domain: the existing host-only cookie is correct.
+4. Redeploy the dashboard, sign in once, then reload. Browser requests must go to `https://<dashboard-host>/api/v1/auth/refresh`, rather than directly to `onrender.com`. Login should set `blog_refresh` on the dashboard host with `HttpOnly`, `Secure`, and `Path=/api/v1/auth`; refreshing should send that cookie and return 200.
 
-`public/_headers` supplies anti-framing, no-sniff, referrer, permission, and noindex policies. The UI self-hosts Inter from its font package. All `VITE_` values are public build-time configuration; never supply JWT, database, revalidation, or other backend secrets. This project does not create Cloudflare resources or publish automatically.
+The Worker streams API request/response bodies (including image uploads), preserves Set-Cookie, and disables API caching. Unknown application routes serve `index.html`; API failures remain API failures. Access tokens stay in memory and refresh cookies remain HttpOnly.
+
+For local Vite development, keep an absolute local API URL and use the same hostname for frontend/backend (both `127.0.0.1` or both `localhost`). Deploying to Cloudflare Pages instead of Workers requires an equivalent API proxy or API/dashboard custom domains on the same site.
+
+`public/_headers` supplies anti-framing, no-sniff, referrer, permission, and noindex policies. The UI self-hosts Inter. All `VITE_` values are public build-time configuration; keep database, JWT, and Cloudinary secrets on the backend.
 
 ## Remaining backend capabilities
 

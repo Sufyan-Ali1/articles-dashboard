@@ -1,0 +1,15 @@
+name = "articles-dashboard"
+main = "src/worker.ts"
+compatibility_date = "2026-10-22"
+
+[build]
+command = "VITE_API_BASE_URL=/api/v1 npm run build"
+
+[vars]
+API_ORIGIN = "https://articles-management.onrender.com"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/v1", "/api/v1/*"]

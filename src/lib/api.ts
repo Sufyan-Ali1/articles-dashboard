@@ -40,6 +40,8 @@ export function apiBase(): string {
       'configuration_error',
       'Set VITE_API_BASE_URL in your environment, then restart or rebuild the dashboard.',
     );
+  // A root-relative prefix uses the dashboard's Worker proxy and first-party cookies.
+  if (/^\/(?!\/)[a-zA-Z0-9/_-]+$/.test(value)) return value;
   try {
     const url = new URL(value);
     if (
@@ -54,7 +56,7 @@ export function apiBase(): string {
     throw new ApiError(
       0,
       'configuration_error',
-      'VITE_API_BASE_URL must be an absolute HTTP(S) API URL without credentials, query, or fragment.',
+      'VITE_API_BASE_URL must be /api/v1 or an absolute HTTP(S) API URL without credentials, query, or fragment.',
     );
   }
   return value;

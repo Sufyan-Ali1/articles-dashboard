@@ -7,7 +7,7 @@ import { ArrowRight, BookOpenText, Eye, EyeOff, Feather } from 'lucide-react';
 import { useAuth } from './auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ErrorState, Field, Spinner } from '@/components/shared';
+import { AppLoading, ErrorState, Field, Spinner } from '@/components/shared';
 export const loginSchema = z.object({
   email: z.string().trim().email('Enter a valid email address.').max(255),
   password: z.string().min(1, 'Enter your password.').max(128),
@@ -26,12 +26,7 @@ export default function LoginPage() {
     candidate?.startsWith('/') && !candidate.startsWith('//') && !candidate.startsWith('/login')
       ? candidate
       : '/dashboard';
-  if (initializing)
-    return (
-      <div role="status" className="p-8">
-        Restoring your session…
-      </div>
-    );
+  if (initializing) return <AppLoading />;
   if (sessionError)
     return (
       <div className="p-8">
