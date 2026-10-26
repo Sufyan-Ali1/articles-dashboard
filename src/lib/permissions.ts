@@ -6,6 +6,6 @@ export const canEditArticle = (user: User, article: ArticleSummary) =>
 export const allowedPage = (role: Role, page: string) =>
   ['users', 'activity-logs'].includes(page)
     ? isAdmin(role)
-    : page === 'article-requests'
+    : ['article-requests', 'traffic-sources'].includes(page)
       ? canReview(role)
       : true;

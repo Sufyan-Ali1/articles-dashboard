@@ -1,7 +1,9 @@
+import { TrafficPanel } from '@/features/traffic/traffic-panel';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  CalendarClock,
   ArrowRight,
   Archive,
   CheckCheck,
@@ -65,6 +67,14 @@ export default function DashboardPage() {
       params: { status: 'archived' as ArticleStatus },
     },
     {
+      key: 'scheduled',
+      label: 'Scheduled',
+      icon: CalendarClock,
+      color: 'text-blue-600 bg-blue-500/8',
+      caption: 'Queued for publication',
+      params: { status: 'scheduled' as ArticleStatus },
+    },
+    {
       key: 'featured',
       label: 'Featured articles',
       icon: Star,
@@ -79,6 +89,7 @@ export default function DashboardPage() {
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         articlesApi.list({ ...metric.params, page_size: 1 }, signal),
       select: (response: Awaited<ReturnType<typeof articlesApi.list>>) => response.meta.total,
+      refetchInterval: 30000,
     })),
   });
   const views = useQuery({
@@ -125,7 +136,10 @@ export default function DashboardPage() {
           variant="outline"
           size="icon"
           aria-label="Refresh dashboard"
-          onClick={() => void client.invalidateQueries({ queryKey: ['dashboard'] })}
+          onClick={() => {
+            void client.invalidateQueries({ queryKey: ['dashboard'] });
+            void client.invalidateQueries({ queryKey: ['traffic'] });
+          }}
         >
           <RefreshCw />
         </Button>
@@ -141,8 +155,8 @@ export default function DashboardPage() {
           All article metrics below are scoped to your own articles.
         </p>
       )}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.slice(0, 4).map((metric, index) => (
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {metrics.slice(0, 5).map((metric, index) => (
           <Card key={metric.key} className="p-5">
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium text-muted-foreground">{metric.label}</p>
@@ -184,7 +198,9 @@ export default function DashboardPage() {
                 number(views.data)
               )}
             </p>
-            <p className="mt-1 text-[10px] text-muted-foreground">Raw API requests · snapshot</p>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Lifetime views · includes historical counts
+            </p>
           </div>
         </Card>
         <Card className="flex items-center gap-4 p-5">
@@ -194,11 +210,11 @@ export default function DashboardPage() {
           <div>
             <p className="text-xs text-muted-foreground">Featured articles</p>
             <p className="mt-1 text-xl font-semibold tabular-nums">
-              {counts[4].isPending
+              {counts[5].isPending
                 ? '…'
-                : counts[4].error
+                : counts[5].error
                   ? 'Unavailable'
-                  : number(counts[4].data ?? 0)}
+                  : number(counts[5].data ?? 0)}
             </p>
             <p className="mt-1 text-[10px] text-muted-foreground">Across all editorial statuses</p>
           </div>
@@ -237,6 +253,7 @@ export default function DashboardPage() {
           />
         </div>
       )}
+      {reviewer && <TrafficPanel />}
       <div
         className={`mt-7 grid items-start gap-6 ${reviewer ? '2xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]' : ''}`}
       >

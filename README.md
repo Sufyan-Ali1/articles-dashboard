@@ -117,3 +117,67 @@ For local Vite development, keep an absolute local API URL and use the same host
 ## Remaining backend capabilities
 
 There are no non-admin self-profile update, settings, analytics aggregate, reviewer-name lookup for editors, or conditional-update endpoints. Their absence is handled explicitly. See [API integration notes](docs/API_CONTRACT.md) and the [verification report](IMPLEMENTATION_REPORT.md).
+
+## Traffic Sources
+
+Admins and editors can open Traffic Sources to see lifetime views, tracked views,
+distinct browsing sessions, and every configured source (including zero-count
+sources). Filters support all time or the last 7/30/90 days. The same cards appear
+on the overview and on saved article detail/edit pages.
+
+Administrators create/edit sources and their optional referring hostnames, activate
+or deactivate them, and delete unused sources. Source keys are permanent. Sources
+referenced by tracking links or events return 409 on deletion; deactivate them to
+preserve historical attribution. Deactivation stops new short-link redirects and
+new referrer matching, while existing short-link sessions keep their source. Referrer-only sessions use the current registry for each new event.
+
+An article's Share & track panel creates links from active managed sources, with
+optional campaign and placement labels. Publish the article first, then copy a
+link such as `https://askandexplore.com/r/linkedin-comment-01`. Readers are redirected
+to the clean article URL. Links can be enabled/disabled. `VITE_SITE_URL`
+configures the website origin and defaults to `https://askandexplore.com`.
+
+Source metrics use `/admin/analytics/sources` and `/admin/traffic-sources`;
+link controls use `/admin/tracking-links`. The existing API client provides session
+authentication, cancellation, rate-limit feedback, and private cache scopes.
+Traffic errors show an unavailable state instead of fabricated zero counts.
+Older counter-only views appear under lifetime views and are explained separately.
+Direct visits and unmatched referrers remain visible in their own card. Sessions
+are browsing sessions, not unique people, and grouped sessions should not be added
+to calculate unique visitors.
+
+Deploy the matching backend and website. The backend's single unapplied
+`0005_pending_features` migration includes the source registry and analytics.
+No migration was run for this dashboard work. Browser traffic collection still
+requires the website/backend server-side analytics key configured as documented
+in the backend's `docs/TRAFFIC_TRACKING.md`.
+
+## Scheduled publication
+
+Admins/editors can choose Schedule from a draft or new article, or Reschedule from
+an existing scheduled article. The dialog uses the browser timezone, previews the
+UTC timestamp, and accepts future times only. Edits are saved before the dedicated
+schedule endpoint is called. A failed scheduling request preserves the saved draft
+and shows the error; it does not claim the article was scheduled. New-article partial
+failures reopen the schedule dialog on the saved draft.
+
+Scheduled articles show their planned time on detail/edit pages and in article
+lists. A Scheduled tab filters the list; the overview includes a Scheduled count.
+Lists and counts refresh every 30 seconds. On the editor, use Refresh status to
+load the latest server publication state after a scheduled article becomes due.
+Unsaved edits must be saved or discarded before refreshing or cancelling, so they
+are not overwritten. Authors can see the schedule but cannot change it.
+
+Cancel schedule returns the article to draft through DELETE /articles/{id}/schedule.
+Save & publish now overrides the schedule through the existing publish endpoint.
+Saving ordinary edits keeps the existing schedule. Archived articles must be
+restored to draft before scheduling; published articles must first be unpublished.
+
+The dashboard uses POST /articles/{id}/schedule with scheduled_publish_at as an
+ISO UTC timestamp. It never writes status=scheduled through the article PATCH API.
+Automatic publication runs in the backend worker, not the browser; the default
+poll interval is 30 seconds and requires a running backend process. Apply the
+existing combined pending backend migration only when ready. No new migration is
+needed for these dashboard controls and no migrations were run.
+
+The website-link variable is VITE_SITE_URL. Do not configure API_USER/API_KEY in the dashboard: staff calls continue to use bearer authentication, including shared taxonomy reads. Keep consumer credentials only in the backend and public website server environments.

@@ -1,9 +1,23 @@
+import { TrafficPanel } from '@/features/traffic/traffic-panel';
+import { ArticleLinks } from '@/features/traffic/article-links';
+import { ScheduleDialog } from './schedule-dialog';
+import { scheduledDate } from './scheduling';
 import { useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { Archive, ArrowLeft, Check, Eye, Save, Send, Undo2 } from 'lucide-react';
+import {
+  Archive,
+  ArrowLeft,
+  CalendarClock,
+  Check,
+  Eye,
+  RefreshCw,
+  Save,
+  Send,
+  Undo2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/features/auth/auth';
 import { useScope } from '@/hooks/use-private-query';
@@ -49,6 +63,13 @@ function EditorForm({ initial }: { initial?: Article }) {
     return savedError ? new Error(savedError) : null;
   });
   const [preview, setPreview] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(() =>
+    Boolean(
+      (location.state as { openSchedule?: boolean; scheduleDate?: string } | null)?.openSchedule ||
+      (location.state as { scheduleDate?: string } | null)?.scheduleDate,
+    ),
+  );
+  const [scheduleDraft, setScheduleDraft] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState(initial?.updated_at);
   const categories = useClassifications('categories');
   const tags = useClassifications('tags');
@@ -69,7 +90,11 @@ function EditorForm({ initial }: { initial?: Article }) {
     form.reset(articleDefaults(saved));
     setSavedAt(saved.updated_at);
   };
-  const save = async (values: ArticleFormValues, action: 'save' | 'publish' | 'unpublish') => {
+  const save = async (
+    values: ArticleFormValues,
+    action: 'save' | 'publish' | 'unpublish' | 'schedule',
+    when?: string,
+  ) => {
     if (pendingRef.current || !writable) return;
     if (uploadsRef.current > 0) {
       toast.error('Wait for image uploads to finish before saving.');
@@ -98,19 +123,29 @@ function EditorForm({ initial }: { initial?: Article }) {
       toast.success('Article saved.');
       if (action !== 'save') {
         const publication =
-          action === 'publish'
-            ? await articlesApi.publish(saved.id)
-            : await articlesApi.unpublish(saved.id);
+          action === 'schedule'
+            ? await articlesApi.schedule(saved.id, when!)
+            : action === 'publish'
+              ? await articlesApi.publish(saved.id)
+              : await articlesApi.unpublish(saved.id);
         saved = publication.data;
         if (epoch !== getApiEpoch()) return;
         apply(saved);
-        toast.success(action === 'publish' ? 'Article published.' : 'Article unpublished.');
+        toast.success(
+          action === 'schedule'
+            ? 'Publication scheduled.'
+            : action === 'publish'
+              ? 'Article published.'
+              : 'Article unpublished.',
+        );
+        if (action === 'schedule') setScheduleOpen(false);
       }
       await invalidate();
       if (!current) {
         allowNavigation();
         void navigate(`/articles/${saved.id}/edit`, { replace: true });
       }
+      return true;
     } catch (failure) {
       if (epoch !== getApiEpoch()) return;
       if (saved) {
@@ -122,7 +157,10 @@ function EditorForm({ initial }: { initial?: Article }) {
         allowNavigation();
         void navigate(`/articles/${saved.id}/edit`, {
           replace: true,
-          state: { saveError: message(failure) },
+          state: {
+            saveError: message(failure),
+            ...(action === 'schedule' ? { scheduleDate: when } : {}),
+          },
         });
       }
       if (failure instanceof ApiError && failure.status === 422 && Array.isArray(failure.details))
@@ -135,6 +173,7 @@ function EditorForm({ initial }: { initial?: Article }) {
         }
       if (failure instanceof ApiError && failure.status === 403)
         void refreshUser().catch(() => undefined);
+      return false;
     } finally {
       setPending(false);
       pendingRef.current = false;
@@ -145,6 +184,50 @@ function EditorForm({ initial }: { initial?: Article }) {
       (values) => save(values, action),
       () => toast.error('Check the highlighted fields before saving.'),
     )();
+  const schedule = async (timestamp: string) => {
+    setScheduleDraft(timestamp);
+    let success = false;
+    await form.handleSubmit(
+      async (values) => {
+        success = (await save(values, 'schedule', timestamp)) === true;
+      },
+      () => {
+        setScheduleOpen(false);
+        toast.error('Check the highlighted article fields before scheduling.');
+      },
+    )();
+    return success;
+  };
+  const updatePublication = async (cancel: boolean) => {
+    if (
+      pendingRef.current ||
+      form.formState.isDirty ||
+      uploadsRef.current > 0 ||
+      !articleRef.current
+    )
+      return;
+    const epoch = getApiEpoch();
+    pendingRef.current = true;
+    setPending(true);
+    setError(null);
+    try {
+      const result = cancel
+        ? await articlesApi.cancelSchedule(articleRef.current.id)
+        : await articlesApi.detail(articleRef.current.id);
+      if (epoch !== getApiEpoch()) return;
+      apply(result.data);
+      await invalidate();
+      if (cancel) toast.success('Schedule cancelled. Article returned to draft.');
+    } catch (failure) {
+      if (epoch === getApiEpoch()) setError(failure);
+      throw failure;
+    } finally {
+      pendingRef.current = false;
+      setPending(false);
+    }
+  };
+  const canSchedule =
+    reviewer && (!article || article.status === 'draft' || article.status === 'scheduled');
   return (
     <ImageUploadProvider onPendingChange={changeUploads}>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -183,15 +266,34 @@ function EditorForm({ initial }: { initial?: Article }) {
                 onClick={() => submit('save')}
               >
                 {pending ? <Spinner /> : <Save />}
-                {article?.status === 'published' ? 'Save changes' : 'Save draft'}
+                {article?.status === 'published' || article?.status === 'scheduled'
+                  ? 'Save changes'
+                  : 'Save draft'}
               </Button>
+              {canSchedule && (
+                <Button
+                  variant="outline"
+                  disabled={pending || uploads > 0}
+                  onClick={() => {
+                    setError(null);
+                    setScheduleOpen(true);
+                  }}
+                >
+                  <CalendarClock />
+                  {article?.status === 'scheduled' ? 'Reschedule' : 'Schedule'}
+                </Button>
+              )}
               {reviewer && (
                 <Button
                   disabled={pending || uploads > 0}
                   onClick={() => submit(article?.status === 'published' ? 'unpublish' : 'publish')}
                 >
                   {article?.status === 'published' ? <Undo2 /> : <Send />}
-                  {article?.status === 'published' ? 'Save & unpublish' : 'Save & publish'}
+                  {article?.status === 'published'
+                    ? 'Save & unpublish'
+                    : article?.status === 'scheduled'
+                      ? 'Save & publish now'
+                      : 'Save & publish'}
                 </Button>
               )}
             </>
@@ -212,6 +314,60 @@ function EditorForm({ initial }: { initial?: Article }) {
             This article is live. Saving changes updates the published article immediately.
           </Notice>
         </div>
+      )}
+      {article?.status === 'scheduled' && (
+        <Card className="mb-5 p-5">
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <CalendarClock className="size-4 text-primary" />
+            Scheduled publication
+          </h2>
+          <p className="mt-2 text-sm">
+            {article.scheduled_publish_at
+              ? scheduledDate(article.scheduled_publish_at)
+              : 'Publication time unavailable'}
+          </p>
+          {article.scheduled_publish_at && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              UTC: {article.scheduled_publish_at}
+            </p>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            The article stays private until the server publishes it. Refresh status to check whether
+            it has gone live.
+          </p>
+          {reviewer && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pending || form.formState.isDirty || uploads > 0}
+                onClick={() => void updatePublication(false).catch(() => undefined)}
+              >
+                <RefreshCw />
+                Refresh status
+              </Button>
+              <ConfirmDialog
+                title="Cancel scheduled publication?"
+                description="Remove the planned publication time and return the saved article to draft. It will remain private."
+                destructive={false}
+                onConfirm={() => updatePublication(true)}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pending || form.formState.isDirty || uploads > 0}
+                >
+                  Cancel schedule
+                </Button>
+              </ConfirmDialog>
+              {(form.formState.isDirty || uploads > 0) && (
+                <p className="w-full text-xs text-muted-foreground">
+                  Save or discard your changes before cancelling or refreshing the schedule.
+                </p>
+              )}
+            </div>
+          )}
+        </Card>
       )}
       {error != null && (
         <div className="mb-5">
@@ -301,6 +457,31 @@ function EditorForm({ initial }: { initial?: Article }) {
           </p>
         </aside>
       </form>
+      {article && reviewer && (
+        <>
+          <TrafficPanel articleId={article.id} />
+          <ArticleLinks
+            articleId={article.id}
+            slug={article.slug}
+            published={article.status === 'published'}
+          />
+        </>
+      )}
+      {canSchedule && (
+        <ScheduleDialog
+          open={scheduleOpen}
+          close={() => setScheduleOpen(false)}
+          initialDate={
+            scheduleDraft ||
+            article?.scheduled_publish_at ||
+            (location.state as { scheduleDate?: string } | null)?.scheduleDate
+          }
+          reschedule={article?.status === 'scheduled'}
+          pending={pending}
+          error={error}
+          onSchedule={schedule}
+        />
+      )}
       <ArticlePreview
         open={preview}
         onOpenChange={setPreview}

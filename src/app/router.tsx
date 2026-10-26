@@ -10,6 +10,7 @@ import Layout, { ProtectedRoute } from './layout';
 import LoginPage from '@/features/auth/login-page';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState, Loading } from '@/components/shared';
+const SourcesPage = lazy(() => import('@/features/traffic/sources-page'));
 const DashboardPage = lazy(() => import('@/features/dashboard/dashboard-page'));
 const ArticlesPage = lazy(() => import('@/features/articles/articles-page'));
 const EditorPage = lazy(() => import('@/features/articles/editor-page'));
@@ -64,6 +65,7 @@ export const routes: RouteObject[] = [
                 element: <ProtectedRoute roles={['admin', 'editor']} />,
                 children: [
                   { path: '/article-requests', element: waiting(<RequestsPage />) },
+                  { path: '/traffic-sources', element: waiting(<SourcesPage />) },
                   { path: '/article-requests/:id', element: waiting(<RequestDetailPage />) },
                 ],
               },

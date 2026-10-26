@@ -20,5 +20,12 @@ export const articlesApi = {
     api<Resource<Article>>(`/articles/${id}/unpublish`, { method: 'POST' }),
   status: (id: string, status: 'draft' | 'archived') =>
     api<Resource<Article>>(`/articles/${id}`, { method: 'PATCH', body: { status } }),
+  schedule: (id: string, scheduled_publish_at: string) =>
+    api<Resource<Article>>(`/articles/${id}/schedule`, {
+      method: 'POST',
+      body: { scheduled_publish_at },
+    }),
+  cancelSchedule: (id: string) =>
+    api<Resource<Article>>(`/articles/${id}/schedule`, { method: 'DELETE' }),
   delete: (id: string) => api<void>(`/articles/${id}`, { method: 'DELETE' }),
 };

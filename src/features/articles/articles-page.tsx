@@ -7,6 +7,7 @@ import { useList } from '@/hooks/use-list';
 import { useClassifications } from '@/features/categories/api';
 import { articlesApi } from './api';
 import { ArticleActions } from './article-actions';
+import { scheduledDate } from './scheduling';
 import { date, number } from '@/lib/utils';
 import type { ArticleFilters, ArticleStatus } from '@/types/api';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ export default function ArticlesPage() {
   const featured = list.params.get('is_featured');
   const filters: ArticleFilters = {
     ...list.base,
-    status: ['draft', 'published', 'archived'].includes(status ?? '')
+    status: ['draft', 'published', 'archived', 'scheduled'].includes(status ?? '')
       ? (status as ArticleStatus)
       : undefined,
     category: list.params.get('category') || undefined,
@@ -46,6 +47,7 @@ export default function ArticlesPage() {
   const query = useQuery({
     queryKey: ['articles', ...scope, filters],
     queryFn: ({ signal }) => articlesApi.list(filters, signal),
+    refetchInterval: 30000,
   });
   return (
     <>
@@ -68,6 +70,7 @@ export default function ArticlesPage() {
               { value: '', label: 'All articles' },
               { value: 'published', label: 'Published' },
               { value: 'draft', label: 'Drafts' },
+              { value: 'scheduled', label: 'Scheduled' },
               { value: 'archived', label: 'Archived' },
             ].map((tab) => (
               <button
@@ -268,6 +271,11 @@ export default function ArticlesPage() {
                     </td>
                     <td className="px-5 py-4">
                       <StatusBadge status={article.status} />
+                      {article.status === 'scheduled' && article.scheduled_publish_at && (
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          {scheduledDate(article.scheduled_publish_at)}
+                        </p>
+                      )}
                     </td>
                     <td className="px-5 py-4 text-xs tabular-nums">{number(article.view_count)}</td>
                     <td className="whitespace-nowrap px-5 py-4 text-xs text-muted-foreground">

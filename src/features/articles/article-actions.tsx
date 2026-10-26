@@ -1,6 +1,15 @@
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Archive, ArchiveRestore, Eye, Pencil, Send, Trash2, Undo2 } from 'lucide-react';
+import {
+  Archive,
+  ArchiveRestore,
+  CalendarClock,
+  Eye,
+  Pencil,
+  Send,
+  Trash2,
+  Undo2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/features/auth/auth';
 import { canEditArticle, canReview, isAdmin } from '@/lib/permissions';
@@ -15,15 +24,19 @@ export function useArticleInvalidation() {
       client.invalidateQueries({ queryKey: ['articles'] }),
       client.invalidateQueries({ queryKey: ['dashboard'] }),
       client.invalidateQueries({ queryKey: ['logs'] }),
+      client.invalidateQueries({ queryKey: ['traffic'] }),
     ]);
 }
 export function ArticleActions({ article }: { article: ArticleSummary }) {
   const { user } = useAuth();
   const invalidate = useArticleInvalidation();
   const mutation = useMutation({
-    mutationFn: async (action: 'publish' | 'unpublish' | 'archive' | 'restore' | 'delete') => {
+    mutationFn: async (
+      action: 'publish' | 'unpublish' | 'archive' | 'restore' | 'delete' | 'cancel-schedule',
+    ) => {
       if (action === 'archive' || action === 'restore')
         await articlesApi.status(article.id, action === 'archive' ? 'archived' : 'draft');
+      else if (action === 'cancel-schedule') await articlesApi.cancelSchedule(article.id);
       else await articlesApi[action](article.id);
     },
     onSuccess: async () => {
@@ -36,7 +49,12 @@ export function ArticleActions({ article }: { article: ArticleSummary }) {
     ? ([
         {
           action: article.status === 'published' ? 'unpublish' : 'publish',
-          label: article.status === 'published' ? 'Unpublish' : 'Publish',
+          label:
+            article.status === 'published'
+              ? 'Unpublish'
+              : article.status === 'scheduled'
+                ? 'Publish now'
+                : 'Publish',
           icon: article.status === 'published' ? Undo2 : Send,
         },
         {
@@ -61,6 +79,34 @@ export function ArticleActions({ article }: { article: ArticleSummary }) {
           {canEditArticle(user, article) ? <Pencil /> : <Eye />}
         </Link>
       </Button>
+      {canReview(user.role) && (article.status === 'draft' || article.status === 'scheduled') && (
+        <Button
+          asChild
+          variant="ghost"
+          size="icon"
+          title={article.status === 'scheduled' ? 'Reschedule' : 'Schedule'}
+        >
+          <Link
+            to={`/articles/${article.id}/edit`}
+            state={{ openSchedule: true }}
+            aria-label={`${article.status === 'scheduled' ? 'Reschedule' : 'Schedule'} ${article.title}`}
+          >
+            <CalendarClock />
+          </Link>
+        </Button>
+      )}
+      {canReview(user.role) && article.status === 'scheduled' && (
+        <ConfirmDialog
+          title="Cancel scheduled publication?"
+          description="Remove the publication schedule and return this article to draft."
+          destructive={false}
+          onConfirm={() => mutation.mutateAsync('cancel-schedule')}
+        >
+          <Button variant="ghost" size="sm" disabled={mutation.isPending}>
+            Cancel schedule
+          </Button>
+        </ConfirmDialog>
+      )}
       {actions.map(({ action, label, icon: Icon }) => (
         <ConfirmDialog
           key={action}

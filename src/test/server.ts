@@ -16,6 +16,21 @@ export const server = setupServer(
     }),
   ),
   http.get(`${base}/auth/me`, () => HttpResponse.json({ data: admin })),
+  http.get(`${base}/admin/analytics/sources`, () =>
+    HttpResponse.json({
+      data: {
+        views: 0,
+        sessions: 0,
+        lifetime_views: article.view_count,
+        legacy_views: article.view_count,
+        sources: [],
+        unassigned_views: 0,
+        unassigned_sessions: 0,
+      },
+    }),
+  ),
+  http.get(`${base}/admin/traffic-sources`, () => HttpResponse.json(page([]))),
+  http.get(`${base}/admin/tracking-links`, () => HttpResponse.json(page([]))),
   http.get(`${base}/admin/articles`, () => HttpResponse.json(page([article]))),
   http.get(`${base}/admin/articles/:id`, () => HttpResponse.json({ data: article })),
   http.get(`${base}/categories`, () => HttpResponse.json(page([]))),

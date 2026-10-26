@@ -27,6 +27,7 @@ export function Badge({
 export function StatusBadge({ status }: { status: string }) {
   const tones: Record<string, 'green' | 'blue' | 'amber' | 'red' | 'neutral'> = {
     published: 'green',
+    scheduled: 'blue',
     draft: 'amber',
     archived: 'neutral',
     pending: 'amber',

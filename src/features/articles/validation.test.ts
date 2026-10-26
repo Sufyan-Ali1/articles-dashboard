@@ -30,6 +30,7 @@ describe('article validation and serialization', () => {
       'created_at',
       'updated_at',
       'published_at',
+      'scheduled_publish_at',
     ])
       expect(payload).not.toHaveProperty(key);
   });

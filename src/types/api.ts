@@ -1,5 +1,5 @@
 export type Role = 'admin' | 'editor' | 'author';
-export type ArticleStatus = 'draft' | 'published' | 'archived';
+export type ArticleStatus = 'draft' | 'published' | 'archived' | 'scheduled';
 export type RequestStatus = 'pending' | 'accepted' | 'rejected' | 'completed';
 export interface Resource<T> {
   data: T;
@@ -56,6 +56,7 @@ export interface ArticleSummary {
   is_featured: boolean;
   view_count: number;
   published_at: string | null;
+  scheduled_publish_at: string | null;
   created_at: string;
   updated_at: string;
   status: ArticleStatus;

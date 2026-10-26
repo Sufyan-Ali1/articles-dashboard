@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import {
+  Globe,
   BookOpenText,
   LayoutDashboard,
   FileText,
@@ -31,6 +32,7 @@ import { EmptyState, Loading, Spinner } from '@/components/shared';
 export const navigation = [
   { path: 'dashboard', label: 'Overview', icon: LayoutDashboard, group: 'Workspace' },
   { path: 'articles', label: 'Articles', icon: FileText, group: 'Workspace' },
+  { path: 'traffic-sources', label: 'Traffic Sources', icon: Globe, group: 'Workspace' },
   { path: 'categories', label: 'Categories', icon: FolderTree, group: 'Content' },
   { path: 'tags', label: 'Tags', icon: Tags, group: 'Content' },
   { path: 'article-types', label: 'Article types', icon: Shapes, group: 'Content' },
