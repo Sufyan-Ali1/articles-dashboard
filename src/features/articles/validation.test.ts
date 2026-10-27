@@ -15,7 +15,7 @@ describe('article validation and serialization', () => {
     expect(result.success).toBe(false);
     if (!result.success)
       expect(result.error.issues.map((issue) => issue.path[0])).toEqual(
-        expect.arrayContaining(['title', 'article_type_id']),
+        expect.arrayContaining(['title', 'article_type_id', 'author_id']),
       );
   });
   it('whitelists writes and excludes author featured edits and protected fields', () => {
@@ -23,7 +23,7 @@ describe('article validation and serialization', () => {
     expect(payload).not.toHaveProperty('is_featured');
     for (const key of [
       'id',
-      'author_id',
+      'created_by_id',
       'author',
       'status',
       'view_count',

@@ -47,7 +47,7 @@ export interface ArticleSummary {
   excerpt: string | null;
   featured_image: string | null;
   featured_image_alt: string | null;
-  author: { id: string; name: string } | null;
+  author: { id: string; name: string; specialization?: string } | null;
   author_id: string | null;
   article_type: Classification | null;
   article_type_id: string | null;
@@ -72,6 +72,7 @@ export interface ArticleInput {
   slug?: string;
   content_html: string;
   article_type_id: string;
+  author_id: string;
   category_ids: string[];
   tag_ids: string[];
   is_featured?: boolean;

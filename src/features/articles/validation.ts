@@ -119,6 +119,7 @@ export const articleSchema = z.object({
     ),
   content_html: z.string().min(1, 'Article content is required.').max(1000000),
   article_type_id: z.string().uuid('Choose an article type.'),
+  author_id: z.string().uuid('Choose an author.'),
   category_ids: z
     .array(z.string().uuid())
     .max(100)
@@ -152,6 +153,7 @@ export function articleDefaults(article?: Article): ArticleFormValues {
     slug: article?.slug ?? '',
     content_html: article?.content_html ?? '<p></p>',
     article_type_id: article?.article_type_id ?? '',
+    author_id: article?.author_id ?? '',
     category_ids: article?.categories.map((c) => c.id) ?? [],
     tag_ids: article?.tags.map((t) => t.id) ?? [],
     excerpt: article?.excerpt ?? '',
@@ -169,6 +171,7 @@ export function articlePayload(values: ArticleFormValues, role: Role): ArticleIn
     ...(values.slug ? { slug: values.slug } : {}),
     content_html: values.content_html,
     article_type_id: values.article_type_id,
+    author_id: values.author_id,
     category_ids: [...new Set(values.category_ids)],
     tag_ids: [...new Set(values.tag_ids)],
     excerpt: nullable(values.excerpt),

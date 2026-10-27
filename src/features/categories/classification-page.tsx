@@ -65,12 +65,16 @@ const labels = {
     icon: Shapes,
   },
 };
-function ClassificationForm({
+export function ClassificationForm({
   kind,
   record,
   records,
   onClose,
+  initialName = '',
+  onCreated,
 }: {
+  initialName?: string;
+  onCreated?: (record: Classification) => void;
   kind: ClassificationKind;
   record?: Classification;
   records: Classification[];
@@ -81,7 +85,7 @@ function ClassificationForm({
   const form = useForm<z.infer<typeof classificationSchema>>({
     resolver: zodResolver(classificationSchema),
     defaultValues: {
-      name: record?.name ?? '',
+      name: record?.name ?? initialName,
       slug: record?.slug ?? '',
       description: record?.description ?? '',
       is_active: record?.is_active ?? true,
@@ -102,9 +106,10 @@ function ClassificationForm({
         },
         record?.id,
       ),
-    onSuccess: () => {
+    onSuccess: ({ data }) => {
+      onCreated?.(data);
       void client.invalidateQueries({ queryKey: ['classifications'] });
-      void client.invalidateQueries({ queryKey: ['articles'] });
+      if (!onCreated) void client.invalidateQueries({ queryKey: ['articles'] });
       void client.invalidateQueries({ queryKey: ['logs'] });
       toast.success(
         `${label.singular[0].toUpperCase() + label.singular.slice(1)} ${record ? 'updated' : 'created'}.`,
@@ -113,7 +118,13 @@ function ClassificationForm({
     },
   });
   return (
-    <form className="space-y-4" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
+    <form
+      className="space-y-4"
+      onSubmit={(event) => {
+        event.stopPropagation();
+        void form.handleSubmit((values) => mutation.mutate(values))(event);
+      }}
+    >
       <Field label="Name" htmlFor="classification-name" error={form.formState.errors.name?.message}>
         <Input id="classification-name" autoFocus {...form.register('name')} />
       </Field>

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
 import { Star } from 'lucide-react';
 import type { Article, Classification } from '@/types/api';
@@ -10,6 +9,9 @@ import { Card, ErrorState, Field } from '@/components/shared';
 import type { ArticleFormValues } from './validation';
 import { RichTextEditor } from './rich-text-editor';
 import { ImageUpload } from './image-upload';
+import { AuthorPicker } from './author-picker';
+import { TagPicker } from './tag-picker';
+import { CategoryPicker } from './category-picker';
 type PanelProps = { form: UseFormReturn<ArticleFormValues>; disabled: boolean };
 type ClassificationQuery = ReturnType<typeof useClassifications>;
 const merge = (available: Classification[] = [], selected: Classification[] = []) => [
@@ -22,69 +24,6 @@ const merge = (available: Classification[] = [], selected: Classification[] = []
     ].map((row) => [row.id, row]),
   ).values(),
 ];
-function MultiSelect({
-  label,
-  options,
-  value,
-  onChange,
-  disabled,
-  error,
-}: {
-  label: string;
-  options: Classification[];
-  value: string[];
-  onChange: (value: string[]) => void;
-  disabled: boolean;
-  error?: string;
-}) {
-  const [search, setSearch] = useState('');
-  return (
-    <fieldset className="min-w-0">
-      <legend className="mb-2 text-sm font-medium">{label}</legend>
-      <Input
-        aria-label={`Search ${label.toLowerCase()}`}
-        placeholder={`Find ${label.toLowerCase()}…`}
-        value={search}
-        disabled={disabled}
-        onChange={(event) => setSearch(event.target.value)}
-      />
-      <div className="mt-2 max-h-40 space-y-1 overflow-auto rounded-md border p-2">
-        {options
-          .filter((option) => option.name.toLowerCase().includes(search.toLowerCase()))
-          .map((option) => (
-            <label key={option.id} className="flex items-start gap-2 rounded px-1 py-1 text-xs">
-              <input
-                type="checkbox"
-                className="mt-0.5 accent-indigo-600"
-                checked={value.includes(option.id)}
-                disabled={disabled || (!option.is_active && !value.includes(option.id))}
-                onChange={(event) =>
-                  onChange(
-                    event.target.checked
-                      ? [...value, option.id]
-                      : value.filter((id) => id !== option.id),
-                  )
-                }
-              />
-              <span>
-                {option.name}
-                {!option.is_active && <span className="ml-1 text-amber-600">(inactive)</span>}
-              </span>
-            </label>
-          ))}
-        {!options.length && (
-          <p className="p-1 text-xs text-muted-foreground">No options available.</p>
-        )}
-      </div>
-      {error && (
-        <p role="alert" className="mt-1 text-xs text-destructive">
-          {error}
-        </p>
-      )}
-    </fieldset>
-  );
-}
-
 export function StoryPanel({ form, disabled }: PanelProps) {
   const fieldError = (key: keyof ArticleFormValues) => form.formState.errors[key]?.message;
   return (
@@ -247,6 +186,12 @@ export function OrganizationPanel({
     <Card className="p-5">
       <h2 className="mb-4 text-sm font-semibold">Organization</h2>
       <fieldset disabled={disabled} className="space-y-5">
+        <AuthorPicker
+          form={form}
+          disabled={disabled}
+          canCreate={reviewer}
+          selected={article?.author}
+        />
         <Field label="Article type" htmlFor="article-type" error={fieldError('article_type_id')}>
           <Select id="article-type" {...form.register('article_type_id')}>
             <option value="">Choose a type</option>
@@ -266,9 +211,11 @@ export function OrganizationPanel({
           control={form.control}
           name="category_ids"
           render={({ field }) => (
-            <MultiSelect
-              label="Categories"
+            <CategoryPicker
               options={merge(categories.data, article?.categories)}
+              parents={categories.data ?? []}
+              loading={categories.isPending}
+              loadError={!!categories.error}
               value={field.value}
               onChange={field.onChange}
               disabled={disabled}
@@ -280,12 +227,13 @@ export function OrganizationPanel({
           control={form.control}
           name="tag_ids"
           render={({ field }) => (
-            <MultiSelect
-              label="Tags"
+            <TagPicker
               options={merge(tags.data, article?.tags)}
               value={field.value}
               onChange={field.onChange}
               disabled={disabled}
+              loading={tags.isPending}
+              loadError={!!tags.error}
               error={fieldError('tag_ids')}
             />
           )}

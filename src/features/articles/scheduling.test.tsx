@@ -214,6 +214,7 @@ it('creates a draft before scheduling a new article', async () => {
   const user = await signIn();
   await user.type(await screen.findByLabelText('Article title'), 'A new scheduled story');
   await user.selectOptions(screen.getByLabelText('Article type'), classification.id);
+  await user.selectOptions(screen.getByLabelText('Author', { exact: true }), article.author_id!);
   await user.click(screen.getByRole('button', { name: 'HTML' }));
   fireEvent.change(screen.getByLabelText('Article content HTML'), {
     target: { value: '<p>A useful new story.</p>' },

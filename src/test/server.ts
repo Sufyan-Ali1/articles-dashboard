@@ -31,6 +31,18 @@ export const server = setupServer(
   ),
   http.get(`${base}/admin/traffic-sources`, () => HttpResponse.json(page([]))),
   http.get(`${base}/admin/tracking-links`, () => HttpResponse.json(page([]))),
+  http.get(`${base}/admin/authors`, () =>
+    HttpResponse.json(
+      page([
+        {
+          id: article.author_id,
+          name: article.author?.name ?? 'Author',
+          specialization: 'Technology',
+          is_active: true,
+        },
+      ]),
+    ),
+  ),
   http.get(`${base}/admin/articles`, () => HttpResponse.json(page([article]))),
   http.get(`${base}/admin/articles/:id`, () => HttpResponse.json({ data: article })),
   http.get(`${base}/categories`, () => HttpResponse.json(page([]))),
