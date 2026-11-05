@@ -9,7 +9,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
+        'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
         {
           neutral: 'bg-muted text-muted-foreground ring-border',
           green: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 ring-emerald-500/15',
@@ -37,7 +37,7 @@ export function StatusBadge({ status }: { status: string }) {
   };
   return (
     <Badge tone={tones[status] ?? 'neutral'}>
-      <span className="size-1.5 rounded-full bg-current" />
+      <span className="size-1.5 shrink-0 rounded-full bg-current" />
       {status.charAt(0).toUpperCase() + status.slice(1)}
     </Badge>
   );

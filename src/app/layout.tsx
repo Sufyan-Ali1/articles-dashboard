@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import {
   Globe,
+  Mail,
+  MessageSquare,
   BookOpenText,
   LayoutDashboard,
   FileText,
@@ -37,6 +39,13 @@ export const navigation = [
   { path: 'tags', label: 'Tags', icon: Tags, group: 'Content' },
   { path: 'article-types', label: 'Article types', icon: Shapes, group: 'Content' },
   { path: 'article-requests', label: 'Article requests', icon: Inbox, group: 'Content' },
+  { path: 'subscribers', label: 'Subscribers', icon: Mail, group: 'Administration' },
+  {
+    path: 'contact-messages',
+    label: 'Contact messages',
+    icon: MessageSquare,
+    group: 'Administration',
+  },
   { path: 'users', label: 'Team members', icon: Users, group: 'Administration' },
   { path: 'activity-logs', label: 'Activity logs', icon: History, group: 'Administration' },
   { path: 'profile', label: 'My profile', icon: UserRound, group: 'Account' },
@@ -81,6 +90,8 @@ export default function Layout({ restoring = false }: { restoring?: boolean }) {
     '/tags',
     '/article-types',
     '/article-requests',
+    '/subscribers',
+    '/contact-messages',
     '/users',
     '/activity-logs',
   ].includes(location.pathname.replace(/\/$/, ''));

@@ -17,3 +17,13 @@ describe('permissions', () => {
     expect(allowedPage(admin.role, 'users')).toBe(true);
   });
 });
+
+it('uses the creator identity rather than the selected byline author for draft permissions', () => {
+  expect(
+    canEditArticle(author, { ...article, author_id: admin.id, created_by_id: author.id }),
+  ).toBe(true);
+  expect(
+    canEditArticle(author, { ...article, author_id: author.id, created_by_id: admin.id }),
+  ).toBe(false);
+  expect(canEditArticle(author, { ...article, created_by_id: null })).toBe(false);
+});

@@ -21,6 +21,12 @@ const RequestDetailPage = lazy(() =>
     default: module.RequestDetailPage,
   })),
 );
+const AudiencePage = lazy(() => import('@/features/audience/audience-page'));
+const ContactDetailPage = lazy(() =>
+  import('@/features/audience/audience-page').then((module) => ({
+    default: module.ContactDetailPage,
+  })),
+);
 const UsersPage = lazy(() => import('@/features/users/users-page'));
 const LogsPage = lazy(() => import('@/features/activity-logs/logs-page'));
 const ProfilePage = lazy(() => import('@/features/profile/profile-page'));
@@ -72,6 +78,9 @@ export const routes: RouteObject[] = [
               {
                 element: <ProtectedRoute roles={['admin']} />,
                 children: [
+                  { path: '/subscribers', element: waiting(<AudiencePage kind="subscribers" />) },
+                  { path: '/contact-messages', element: waiting(<AudiencePage kind="messages" />) },
+                  { path: '/contact-messages/:id', element: waiting(<ContactDetailPage />) },
                   { path: '/users', element: waiting(<UsersPage />) },
                   { path: '/activity-logs', element: waiting(<LogsPage />) },
                 ],

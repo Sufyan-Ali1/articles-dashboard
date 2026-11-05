@@ -132,6 +132,24 @@ export function SeoPanel({ form }: Pick<PanelProps, 'form'>) {
         >
           <Textarea id="meta-description" {...form.register('meta_description')} />
         </Field>
+        {(['primary_keywords', 'secondary_keywords'] as const).map((name) => (
+          <Field
+            key={name}
+            label={name === 'primary_keywords' ? 'Primary keywords' : 'Secondary keywords'}
+            htmlFor={name}
+            error={fieldError(name)}
+            hint="One keyword or phrase per line. Up to 100 phrases, 300 characters each. Leave empty to clear."
+          >
+            <Textarea
+              id={name}
+              className="min-h-24"
+              placeholder={
+                name === 'primary_keywords' ? 'laptop repair' : 'repair guide\nspare parts'
+              }
+              {...form.register(name)}
+            />
+          </Field>
+        ))}
         <div className="rounded-lg border bg-background p-4">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Search snippet preview
@@ -148,20 +166,6 @@ export function SeoPanel({ form }: Pick<PanelProps, 'form'>) {
               'Your meta description will appear here. Search engines may choose a different snippet.'}
           </p>
         </div>
-        <Field
-          label="JSON-LD schema"
-          htmlFor="jsonld"
-          error={fieldError('schema')}
-          hint="Optional Schema.org JSON object or @graph. Maximum 64 KiB and depth 16. Never include a script tag."
-        >
-          <Textarea
-            id="jsonld"
-            className="min-h-48 font-mono text-xs leading-6"
-            placeholder={'{\n  "@context": "https://schema.org",\n  "@type": "Article"\n}'}
-            spellCheck={false}
-            {...form.register('schema')}
-          />
-        </Field>
       </div>
     </Card>
   );

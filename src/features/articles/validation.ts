@@ -107,6 +107,18 @@ export function validateSchema(source: string): string | null {
         : 'Invalid JSON-LD.';
   }
 }
+export const parseKeywords = (value: string): string[] =>
+  value
+    .split(/\r?\n/)
+    .map((keyword) => keyword.trim())
+    .filter(Boolean);
+const keywordField = z.string().superRefine((value, context) => {
+  const keywords = parseKeywords(value);
+  if (keywords.length > 100)
+    context.addIssue({ code: 'custom', message: 'Use up to 100 keywords per group.' });
+  if (keywords.some((keyword) => [...keyword].length > 300))
+    context.addIssue({ code: 'custom', message: 'Each keyword must be at most 300 characters.' });
+});
 export const articleSchema = z.object({
   title: z.string().trim().min(1, 'A title is required.').max(300),
   slug: z
@@ -140,10 +152,8 @@ export const articleSchema = z.object({
   featured_image_alt: z.string().trim().max(300),
   meta_title: z.string().trim().max(300),
   meta_description: z.string().trim().max(10000),
-  schema: z.string().superRefine((value, context) => {
-    const error = validateSchema(value);
-    if (error) context.addIssue({ code: 'custom', message: error });
-  }),
+  primary_keywords: keywordField,
+  secondary_keywords: keywordField,
   is_featured: z.boolean(),
 });
 export type ArticleFormValues = z.infer<typeof articleSchema>;
@@ -161,7 +171,8 @@ export function articleDefaults(article?: Article): ArticleFormValues {
     featured_image_alt: article?.featured_image_alt ?? '',
     meta_title: article?.meta_title ?? '',
     meta_description: article?.meta_description ?? '',
-    schema: article?.schema ? JSON.stringify(article.schema, null, 2) : '',
+    primary_keywords: (article?.primary_keywords ?? []).join('\n'),
+    secondary_keywords: (article?.secondary_keywords ?? []).join('\n'),
     is_featured: article?.is_featured ?? false,
   };
 }
@@ -179,7 +190,8 @@ export function articlePayload(values: ArticleFormValues, role: Role): ArticleIn
     featured_image_alt: nullable(values.featured_image_alt),
     meta_title: nullable(values.meta_title),
     meta_description: nullable(values.meta_description),
-    schema: values.schema.trim() ? (JSON.parse(values.schema) as Record<string, unknown>) : null,
+    primary_keywords: parseKeywords(values.primary_keywords),
+    secondary_keywords: parseKeywords(values.secondary_keywords),
     ...(role !== 'author' ? { is_featured: values.is_featured } : {}),
   };
 }

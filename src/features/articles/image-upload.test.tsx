@@ -42,9 +42,9 @@ it('rejects oversized files without uploading', async () => {
   render(<ImageUpload id="test-image" onUploaded={onUploaded} />);
   await userEvent.upload(
     screen.getByLabelText('Upload image'),
-    new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'big.png', { type: 'image/png' }),
+    new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'big.png', { type: 'image/png' }),
   );
-  expect(await screen.findByRole('alert')).toHaveTextContent('up to 2 MiB');
+  expect(await screen.findByRole('alert')).toHaveTextContent('up to 10 MiB');
   expect(onUploaded).not.toHaveBeenCalled();
 });
 

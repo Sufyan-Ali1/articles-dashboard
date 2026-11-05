@@ -98,3 +98,46 @@ describe('article validation and serialization', () => {
     expect(output).not.toMatch(/<script|onerror|javascript:|<svg/);
   });
 });
+
+describe('automatic schema ownership', () => {
+  it('does not copy legacy schema into article save payloads', () => {
+    const values = articleDefaults({ ...article, schema: { '@type': 'Article' } });
+    expect(values).not.toHaveProperty('schema');
+    expect(articlePayload(values, 'admin')).not.toHaveProperty('schema');
+  });
+});
+
+describe('article keyword fields', () => {
+  it('loads separate keyword lists and sends arrays, preserving commas inside phrases', () => {
+    const saved = {
+      ...article,
+      primary_keywords: ['laptop repair'],
+      secondary_keywords: ['repair guide'],
+    };
+    const values = articleDefaults(saved);
+    expect(values.primary_keywords).toBe('laptop repair');
+    expect(changedPayload(articlePayload(values, 'admin'), saved)).toEqual({});
+    values.primary_keywords = '  laptop repair  \n\nparts, tools';
+    values.secondary_keywords = '';
+    expect(changedPayload(articlePayload(values, 'admin'), saved)).toEqual({
+      primary_keywords: ['laptop repair', 'parts, tools'],
+      secondary_keywords: [],
+    });
+  });
+  it('validates backend keyword count and phrase length limits', () => {
+    const values = articleDefaults(article);
+    expect(
+      articleSchema.safeParse({ ...values, primary_keywords: Array(101).fill('phrase').join('\n') })
+        .success,
+    ).toBe(false);
+    expect(
+      articleSchema.safeParse({ ...values, secondary_keywords: 'x'.repeat(301) }).success,
+    ).toBe(false);
+    expect(
+      articleSchema.safeParse({
+        ...values,
+        primary_keywords: Array(100).fill('x'.repeat(300)).join('\n'),
+      }).success,
+    ).toBe(true);
+  });
+});

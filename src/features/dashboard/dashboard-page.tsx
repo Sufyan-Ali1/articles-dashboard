@@ -1,3 +1,4 @@
+import { AudienceOverview } from '@/features/audience/audience-overview';
 import { TrafficPanel } from '@/features/traffic/traffic-panel';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -253,6 +254,7 @@ export default function DashboardPage() {
           />
         </div>
       )}
+      {user?.role === 'admin' && <AudienceOverview />}
       {reviewer && <TrafficPanel />}
       <div
         className={`mt-7 grid items-start gap-6 ${reviewer ? '2xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]' : ''}`}

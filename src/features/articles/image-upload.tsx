@@ -40,7 +40,7 @@ export function ImageUpload({
       label="Upload image"
       htmlFor={id}
       error={error}
-      hint="JPEG, PNG, GIF, or WebP, up to 2 MiB. Uploads immediately; save the article to keep it."
+      hint="JPEG, PNG, GIF, or WebP, up to 10 MiB. Uploads immediately; save the article to keep it."
     >
       <Input
         id={id}
@@ -55,9 +55,9 @@ export function ImageUpload({
           if (
             !['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type) ||
             file.size === 0 ||
-            file.size > 2 * 1024 * 1024
+            file.size > 10 * 1024 * 1024
           ) {
-            setError('Choose a JPEG, PNG, GIF, or WebP image up to 2 MiB.');
+            setError('Choose a JPEG, PNG, GIF, or WebP image up to 10 MiB.');
             return;
           }
           busy.current = true;

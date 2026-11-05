@@ -93,7 +93,7 @@ The interface hides unauthorized controls, but FastAPI is the security authority
 
 Featured and inline images upload immediately through the authenticated backend to Cloudinary. Save/publish waits for active uploads. Removing an image only changes the editor until you save; unused images are removed after a 24-hour grace period, with shared saved references protected. Abandoned uploads follow the same cleanup rule.
 
-In `Blogs_Backend`, configure `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`, run `alembic upgrade head`, and restart the API. Uploads support JPEG, PNG, GIF, and WebP up to 2 MiB. Keep all Cloudinary credentials in the backend environment. See the backend's `docs/MEDIA_UPLOADS.md` for cleanup and deployment details.
+In `Blogs_Backend`, configure `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`, run `alembic upgrade head`, and restart the API. Uploads support JPEG, PNG, GIF, and WebP up to 10 MiB. Keep all Cloudinary credentials in the backend environment. See the backend's `docs/MEDIA_UPLOADS.md` for cleanup and deployment details.
 
 ## Dashboard metrics
 
@@ -181,3 +181,31 @@ existing combined pending backend migration only when ready. No new migration is
 needed for these dashboard controls and no migrations were run.
 
 The website-link variable is VITE_SITE_URL. Do not configure API_USER/API_KEY in the dashboard: staff calls continue to use bearer authentication, including shared taxonomy reads. Keep consumer credentials only in the backend and public website server environments.
+
+## Subscribers and contact messages
+
+Administrators can open **Subscribers** and **Contact messages** from the sidebar.
+Both lists support search, sorting, pagination, and manual refresh. Subscriber
+search matches email; contact search matches name, email, or message text. Open
+**Read message** to see the complete submission, reason, sender, related article
+URL, and received time. The overview shows totals and the latest three records
+for each list. Editors and authors cannot access these screens or overview cards.
+
+These read-only views use the existing bearer-authenticated
+`GET /admin/subscriptions`, `GET /admin/contact-messages`, and
+`GET /admin/contact-messages/{id}` endpoints. The backend owns storage and access
+control; no migration is introduced by this dashboard change.
+
+## Article keywords
+
+The SEO section on both create and edit pages includes Primary keywords and
+Secondary keywords. Enter one phrase per line; each group supports up to 100
+phrases of 1–300 characters. The dashboard sends `primary_keywords` and
+`secondary_keywords` as separate arrays, loads saved values on edit, preserves
+unchanged groups on PATCH, and sends `[]` to clear a group. These are separate
+from tags. The backend must have its existing `0007_article_keywords` migration
+applied before using the updated API; this dashboard change runs no migrations.
+
+Author draft access follows the API's `created_by_id`, independently of the
+selected byline author. Image uploads allow up to the backend default of 10 MiB;
+server-side configured limits remain authoritative.

@@ -48,3 +48,26 @@ Frontend validation covers field lengths, ASCII slug format, safe URLs, JSON val
 - No ETag/version/precondition contract exists. The UI cannot promise conflict detection for concurrent editors.
 - Backend errors are authoritative for last-admin protection, category cycles, inactive references, and conflicting slugs.
 - Live backend smoke checks require a running API, approved CORS origin, and provisioned staff accounts. No backend or database files were modified.
+
+## Reader submissions
+
+Admin-only reader data uses `GET /admin/subscriptions`,
+`GET /admin/contact-messages`, and `GET /admin/contact-messages/{id}`.
+Both lists use the standard page envelope and `page`, `page_size`, `sort`, and
+`search` parameters. Subscriptions support email search and sorting by
+`created_at` or `email`. Contact messages search name/email/message and sort by
+`created_at`, `name`, `email`, or `reason`. Descending sorts use a `-` prefix.
+Contact reasons are `general`, `correction`, and `privacy`. There are no review,
+delete, or subscriber mutation controls in the dashboard.
+
+## Updated article contract
+
+Article lists/details and create/update responses include `primary_keywords` and
+`secondary_keywords`. POST accepts string arrays (default `[]`); PATCH preserves
+omitted groups and clears groups with `[]`. Each group accepts at most 100
+trimmed, nonblank strings of at most 300 characters. Legacy responses without
+these fields initialize empty inputs. The dashboard never sends a comma-separated
+string or null. Admin article responses expose `created_by_id` for ownership;
+`author_id` selects an independent author profile. `/admin/authors` is already
+integrated in the author picker. Media uploads now default to a 10 MiB input limit
+and are converted by the backend to center-cropped 1600×900 WebP images.

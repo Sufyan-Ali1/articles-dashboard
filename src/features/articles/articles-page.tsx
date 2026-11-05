@@ -269,7 +269,7 @@ export default function ArticlesPage() {
                     <td className="whitespace-nowrap px-5 py-4 text-xs text-muted-foreground">
                       {article.article_type?.name ?? '—'}
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="min-w-36 whitespace-nowrap px-5 py-4">
                       <StatusBadge status={article.status} />
                       {article.status === 'scheduled' && article.scheduled_publish_at && (
                         <p className="mt-1 text-[10px] text-muted-foreground">

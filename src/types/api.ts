@@ -41,6 +41,9 @@ export interface ClassificationInput {
   parent_id?: string | null;
 }
 export interface ArticleSummary {
+  created_by_id?: string | null;
+  primary_keywords?: string[];
+  secondary_keywords?: string[];
   id: string;
   title: string;
   slug: string;
@@ -68,6 +71,8 @@ export interface Article extends ArticleSummary {
   schema: Record<string, unknown> | null;
 }
 export interface ArticleInput {
+  primary_keywords: string[];
+  secondary_keywords: string[];
   title: string;
   slug?: string;
   content_html: string;
@@ -81,7 +86,7 @@ export interface ArticleInput {
   featured_image_alt: string | null;
   meta_title: string | null;
   meta_description: string | null;
-  schema: Record<string, unknown> | null;
+  schema?: Record<string, unknown> | null;
 }
 export interface ArticleRequest {
   id: string;

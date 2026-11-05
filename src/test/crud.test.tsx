@@ -213,3 +213,33 @@ describe('contract-based CRUD workflows', () => {
     expect(screen.getByText('Original submission')).toBeInTheDocument();
   });
 });
+
+it('loads, edits, and clears keyword groups through the article SEO controls', async () => {
+  const existing = {
+    ...article,
+    primary_keywords: ['laptop repair'],
+    secondary_keywords: ['repair guide'],
+  };
+  let body: unknown;
+  server.use(
+    http.get(`${base}/admin/articles/:id`, () => HttpResponse.json({ data: existing })),
+    http.patch(`${base}/articles/:id`, async ({ request }) => {
+      body = await request.json();
+      return HttpResponse.json({ data: { ...existing, ...(body as object) } });
+    }),
+  );
+  mount('/articles/:id/edit', <EditorPage />);
+  const interaction = await authenticate();
+  const primary = await screen.findByLabelText('Primary keywords');
+  expect(primary).toHaveValue('laptop repair');
+  expect(screen.getByLabelText('Secondary keywords')).toHaveValue('repair guide');
+  await interaction.type(primary, '\nspare parts');
+  await interaction.clear(screen.getByLabelText('Secondary keywords'));
+  await interaction.click(screen.getByRole('button', { name: 'Save draft' }));
+  await waitFor(() =>
+    expect(body).toEqual({
+      primary_keywords: ['laptop repair', 'spare parts'],
+      secondary_keywords: [],
+    }),
+  );
+});
