@@ -38,6 +38,7 @@ import {
 import { useArticleInvalidation } from './article-actions';
 import { StoryPanel, SeoPanel, OrganizationPanel, FeaturedImagePanel } from './editor-fields';
 import { ArticlePreview } from './preview';
+import { ArticleJsonInput } from './json-input';
 import type { Article } from '@/types/api';
 import { Button } from '@/components/ui/button';
 import { Badge, StatusBadge } from '@/components/ui/badge';
@@ -382,6 +383,7 @@ function EditorForm({ initial }: { initial?: Article }) {
         className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]"
       >
         <fieldset disabled={disabled} className="min-w-0 space-y-6">
+          {!initial && <ArticleJsonInput form={form} reviewer={reviewer} disabled={disabled} />}
           <StoryPanel form={form} disabled={disabled} />
           <SeoPanel form={form} />
         </fieldset>
