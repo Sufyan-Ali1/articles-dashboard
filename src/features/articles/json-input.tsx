@@ -1,18 +1,13 @@
 import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { z } from 'zod';
+import { useQueryClient } from '@tanstack/react-query';
+import { message } from '@/lib/api';
+import type { Classification } from '@/types/api';
+import { articleJsonSchema, editorialAuthor, resolveArticleJson } from './json-import';
 import { Card, Field } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
-import { articleSchema, type ArticleFormValues } from './validation';
-
-const keywords = z
-  .union([z.string(), z.array(z.string()).transform((values) => values.join('\n'))])
-  .pipe(articleSchema.shape.primary_keywords);
-const importSchema = articleSchema
-  .omit({ title: true, content_html: true, featured_image: true, featured_image_alt: true })
-  .extend({ primary_keywords: keywords, secondary_keywords: keywords })
-  .partial();
+import { type ArticleFormValues } from './validation';
 
 const placeholderValues = {
   slug: 'your-article-slug',
@@ -21,26 +16,31 @@ const placeholderValues = {
   meta_description: 'Your SEO description',
   primary_keywords: ['Your primary keyword'],
   secondary_keywords: ['Your secondary keyword'],
-  author_id: 'YOUR_AUTHOR_UUID',
-  article_type_id: 'YOUR_ARTICLE_TYPE_UUID',
-  category_ids: ['YOUR_CATEGORY_UUID'],
-  tag_ids: ['YOUR_TAG_UUID'],
+  article_type: 'Your article type name',
+  categories: ['Your category name'],
+  tags: ['Your tag name'],
 };
 const placeholderStrings = new Set(Object.values(placeholderValues).flat());
 
 export function ArticleJsonInput({
   form,
-  reviewer,
+  canCreateTags,
+  onPendingChange,
   disabled,
 }: {
   form: UseFormReturn<ArticleFormValues>;
-  reviewer: boolean;
+  canCreateTags: boolean;
+  onPendingChange?: (pending: boolean) => void;
   disabled: boolean;
 }) {
+  const client = useQueryClient();
+  const [pending, setPending] = useState(false);
+  const busy = disabled || pending;
   const [source, setSource] = useState('');
   const [error, setError] = useState<string>();
   const [status, setStatus] = useState('');
-  const add = () => {
+  const add = async () => {
+    if (busy) return;
     setError(undefined);
     setStatus('');
     let input: unknown;
@@ -70,7 +70,7 @@ export function ArticleJsonInput({
         return;
       }
     }
-    const result = importSchema.safeParse(input);
+    const result = articleJsonSchema.safeParse(input);
     if (!result.success) {
       setError(
         result.error.issues
@@ -79,17 +79,36 @@ export function ArticleJsonInput({
       );
       return;
     }
-    const values = result.data;
-    if (!reviewer) delete values.is_featured;
-    const fields = Object.keys(values) as (keyof typeof values)[];
-    if (!fields.length) {
-      setError('No supported fields found. Title, content, and image fields are ignored.');
+    if (!Object.keys(result.data).length) {
+      setError(
+        'No supported fields found. Title, content, images, IDs, and featured status are ignored.',
+      );
       return;
     }
-    for (const field of fields) {
-      form.setValue(field, values[field]!, { shouldDirty: true, shouldValidate: true });
+    setPending(true);
+    onPendingChange?.(true);
+    try {
+      const values = await resolveArticleJson(result.data, canCreateTags, (tag) => {
+        client.setQueriesData<Classification[]>(
+          {
+            predicate: (query) =>
+              query.queryKey[0] === 'classifications' && query.queryKey.includes('tags'),
+          },
+          (previous) =>
+            previous ? [...previous.filter((row) => row.id !== tag.id), tag] : previous,
+        );
+        void client.invalidateQueries({ queryKey: ['classifications'] });
+      });
+      for (const field of Object.keys(values) as (keyof ArticleFormValues)[]) {
+        form.setValue(field, values[field]!, { shouldDirty: true, shouldValidate: true });
+      }
+      setStatus('JSON values added to the form. Review them before saving.');
+    } catch (failure) {
+      setError(message(failure));
+    } finally {
+      setPending(false);
+      onPendingChange?.(false);
     }
-    setStatus('JSON values added to the form. Review them before saving.');
   };
   return (
     <Card className="space-y-4 p-6">
@@ -104,14 +123,10 @@ export function ArticleJsonInput({
           className="min-h-36 font-mono text-xs"
           rows={22}
           value={source}
-          disabled={disabled}
+          disabled={busy}
           aria-invalid={!!error}
           aria-describedby={error ? 'article-json-error' : undefined}
-          placeholder={JSON.stringify(
-            { ...placeholderValues, ...(reviewer ? { is_featured: false } : {}) },
-            null,
-            2,
-          )}
+          placeholder={JSON.stringify(placeholderValues, null, 2)}
           onChange={(event) => {
             setSource(event.target.value);
             setError(undefined);
@@ -121,12 +136,13 @@ export function ArticleJsonInput({
       </Field>
       <p className="text-xs leading-relaxed text-muted-foreground">
         Keys: slug, excerpt, meta_title, meta_description, primary_keywords, secondary_keywords,
-        author_id, article_type_id, category_ids, tag_ids{reviewer ? ', is_featured' : ''}. Use
-        UUIDs for IDs and arrays of UUIDs for category_ids and tag_ids. Keywords accept arrays of
-        strings or one phrase per line. is_featured accepts true or false.
+        article_type, categories, tags. Use an article type name and arrays of category and tag
+        names. Names match without regard to case. Missing categories or article types show an
+        error; missing tags are created automatically. Author: {editorialAuthor}. Keywords accept
+        arrays of strings or one phrase per line.
       </p>
-      <Button type="button" disabled={disabled || !source.trim()} onClick={add}>
-        Add
+      <Button type="button" disabled={busy || !source.trim()} onClick={add}>
+        {pending ? 'Adding…' : 'Add'}
       </Button>
       {status && (
         <p role="status" className="text-xs text-muted-foreground">

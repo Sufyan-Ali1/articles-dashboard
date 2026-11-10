@@ -51,7 +51,10 @@ function EditorForm({ initial }: { initial?: Article }) {
   const invalidate = useArticleInvalidation();
   const [article, setArticle] = useState(initial);
   const articleRef = useRef(initial);
-  const [pending, setPending] = useState(false);
+  const [saving, setPending] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const importingRef = useRef(false);
+  const pending = saving || importing;
   const [uploads, setUploads] = useState(0);
   const uploadsRef = useRef(0);
   const changeUploads = (change: number) => {
@@ -96,7 +99,7 @@ function EditorForm({ initial }: { initial?: Article }) {
     action: 'save' | 'publish' | 'unpublish' | 'schedule',
     when?: string,
   ) => {
-    if (pendingRef.current || !writable) return;
+    if (pendingRef.current || importingRef.current || !writable) return;
     if (uploadsRef.current > 0) {
       toast.error('Wait for image uploads to finish before saving.');
       return;
@@ -383,7 +386,17 @@ function EditorForm({ initial }: { initial?: Article }) {
         className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]"
       >
         <fieldset disabled={disabled} className="min-w-0 space-y-6">
-          {!initial && <ArticleJsonInput form={form} reviewer={reviewer} disabled={disabled} />}
+          {!initial && (
+            <ArticleJsonInput
+              form={form}
+              canCreateTags={user.role === 'admin'}
+              disabled={disabled}
+              onPendingChange={(value) => {
+                importingRef.current = value;
+                setImporting(value);
+              }}
+            />
+          )}
           <StoryPanel form={form} disabled={disabled} />
           <SeoPanel form={form} />
         </fieldset>

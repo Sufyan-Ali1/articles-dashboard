@@ -1,10 +1,36 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useForm, useWatch } from 'react-hook-form';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { http, HttpResponse } from 'msw';
+import { base, server } from '@/test/server';
+import { classification, page } from '@/test/fixtures';
 import { ArticleJsonInput } from './json-input';
+import { editorialAuthor } from './json-import';
 import { articleDefaults, type ArticleFormValues } from './validation';
 
-function Harness({ reviewer = true, disabled = false }) {
+const authorId = '20000000-0000-4000-8000-000000000001';
+const existingTag = {
+  ...classification,
+  name: 'Existing tag',
+  id: '20000000-0000-4000-8000-000000000002',
+};
+const newTag = { ...classification, name: 'New tag', id: '20000000-0000-4000-8000-000000000003' };
+beforeEach(() => {
+  server.use(
+    http.get(`${base}/admin/authors`, () =>
+      HttpResponse.json(page([{ id: authorId, name: editorialAuthor, is_active: true }])),
+    ),
+    http.get(`${base}/categories`, () =>
+      HttpResponse.json(page([{ ...classification, name: 'Technology' }])),
+    ),
+    http.get(`${base}/article-types`, () =>
+      HttpResponse.json(page([{ ...classification, name: 'Guide' }])),
+    ),
+    http.get(`${base}/tags`, () => HttpResponse.json(page([existingTag]))),
+  );
+});
+function Harness({ canCreateTags = true, disabled = false }) {
   const form = useForm<ArticleFormValues>({
     defaultValues: {
       ...articleDefaults(),
@@ -20,86 +46,156 @@ function Harness({ reviewer = true, disabled = false }) {
   return (
     <form
       onSubmit={() => {
-        throw new Error('Add must not submit the article');
+        throw new Error('Add must not submit');
       }}
     >
-      <ArticleJsonInput form={form} reviewer={reviewer} disabled={disabled} />
+      <ArticleJsonInput form={form} canCreateTags={canCreateTags} disabled={disabled} />
       <div data-testid="values">{JSON.stringify(values)}</div>
-      <div data-testid="dirty">{String(form.formState.isDirty)}</div>
     </form>
   );
+}
+function mount(props = {}) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client.setQueryData(['classifications', 'test-user', 'admin', 'tags', 'all'], [existingTag]);
+  render(
+    <QueryClientProvider client={client}>
+      <Harness {...props} />
+    </QueryClientProvider>,
+  );
+  return client;
 }
 const values = () => JSON.parse(screen.getByTestId('values').textContent!);
 async function add(source: string) {
   fireEvent.change(screen.getByLabelText('Article data (JSON)'), { target: { value: source } });
   await userEvent.click(screen.getByRole('button', { name: 'Add' }));
 }
+async function success() {
+  await screen.findByText('JSON values added to the form. Review them before saving.');
+}
 
-it('updates supplied fields, preserves omitted and excluded fields, and supports repeated imports', async () => {
-  render(<Harness />);
+it('resolves names, fixes the author, ignores IDs and featured status, and preserves omitted and excluded values', async () => {
+  mount();
   const initial = values();
-  const id = '20000000-0000-4000-8000-000000000001';
-  const patch = {
-    slug: 'imported-slug',
-    excerpt: 'New excerpt',
-    meta_description: 'Description',
-    author_id: id,
-    article_type_id: id,
-    category_ids: [id],
-    tag_ids: [id],
-    primary_keywords: ['first', 'second'],
-    secondary_keywords: 'third\nfourth',
-    is_featured: false,
-  };
   await add(
     JSON.stringify({
-      ...patch,
-      title: 'Ignored title',
-      content_html: 'Ignored content',
-      featured_image: 'https://example.com/ignored.jpg',
-      featured_image_alt: 'Ignored alt',
-      unknown: 'ignored',
+      excerpt: 'New excerpt',
+      article_type: ' guide ',
+      categories: ['TECHNOLOGY'],
+      tags: ['existing TAG', 'Existing tag'],
+      primary_keywords: ['first', 'second'],
+      is_featured: false,
+      author_id: 'ignored',
+      category_ids: ['ignored'],
+      article_type_id: 'ignored',
+      tag_ids: ['ignored'],
+      title: 'Ignored',
+      content_html: 'Ignored',
+      featured_image: 'Ignored',
+      featured_image_alt: 'Ignored',
     }),
   );
-  expect(values()).toEqual({ ...initial, ...patch, primary_keywords: 'first\nsecond' });
-  expect(screen.getByTestId('dirty')).toHaveTextContent('true');
-  expect(screen.getByRole('status')).toHaveTextContent('JSON values added');
-  await add('{"excerpt":"Updated again","tag_ids":[],"meta_title":""}');
+  await success();
   expect(values()).toEqual({
     ...initial,
-    ...patch,
+    excerpt: 'New excerpt',
+    article_type_id: classification.id,
+    author_id: authorId,
+    category_ids: [classification.id],
+    tag_ids: [existingTag.id],
     primary_keywords: 'first\nsecond',
+  });
+  await add('{"excerpt":"Updated again","tags":[],"meta_title":""}');
+  await success();
+  expect(values()).toMatchObject({
     excerpt: 'Updated again',
     tag_ids: [],
     meta_title: '',
+    category_ids: [classification.id],
   });
+});
+
+it('creates only missing tags once and updates the picker cache', async () => {
+  let creates = 0;
+  server.use(
+    http.post(`${base}/tags`, async ({ request }) => {
+      creates++;
+      expect(await request.json()).toEqual({ name: 'New tag', description: null, is_active: true });
+      return HttpResponse.json({ data: newTag }, { status: 201 });
+    }),
+  );
+  const client = mount();
+  await add('{"tags":["Existing tag","New tag","NEW TAG"]}');
+  await success();
+  expect(creates).toBe(1);
+  expect(values().tag_ids).toEqual([existingTag.id, newTag.id]);
+  expect(
+    client.getQueryData(['classifications', 'test-user', 'admin', 'tags', 'all']),
+  ).toContainEqual(newTag);
 });
 
 it.each([
   ['{broken', 'Enter valid JSON'],
   ['null', 'JSON:'],
   ['[]', 'JSON:'],
-  ['{"excerpt":"Would change","tag_ids":"invalid"}', 'tag_ids:'],
-  ['{"excerpt":"Would change","is_featured":"false"}', 'is_featured:'],
-  ['{"primary_keywords":[123]}', 'primary_keywords'],
-  ['{"title":"Ignored"}', 'No supported fields'],
-])('leaves the form unchanged for invalid or unsupported input: %s', async (source, message) => {
-  render(<Harness />);
+  ['{"categories":"Technology"}', 'categories:'],
+  ['{"tags":[123]}', 'tags'],
+  ['{"categories":["Unknown"],"tags":["New tag"]}', 'Category "Unknown" was not found'],
+  ['{"article_type":"Unknown","tags":["New tag"]}', 'Article type "Unknown" was not found'],
+  ['{"title":"Ignored","is_featured":false,"author_id":"ignored"}', 'No supported fields'],
+])('does not change the form or create tags for invalid input: %s', async (source, error) => {
+  let creates = 0;
+  server.use(
+    http.post(`${base}/tags`, () => {
+      creates++;
+      return HttpResponse.json({ data: newTag });
+    }),
+  );
+  mount();
   const initial = values();
   await add(source);
-  expect(screen.getByRole('alert')).toHaveTextContent(message);
+  expect(await screen.findByRole('alert')).toHaveTextContent(error);
   expect(values()).toEqual(initial);
-  expect(screen.getByTestId('dirty')).toHaveTextContent('false');
+  expect(creates).toBe(0);
 });
 
-it('respects reviewer permissions', async () => {
-  render(<Harness reviewer={false} />);
-  await add('{"excerpt":"Updated","is_featured":false}');
-  expect(values()).toMatchObject({ excerpt: 'Updated', is_featured: true });
+it('requires an existing editorial author', async () => {
+  server.use(http.get(`${base}/admin/authors`, () => HttpResponse.json(page([]))));
+  mount();
+  const initial = values();
+  await add('{"excerpt":"New summary","tags":["New tag"]}');
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    `Author "${editorialAuthor}" was not found`,
+  );
+  expect(values()).toEqual(initial);
 });
 
-it('shows all supported keys in the placeholder and rejects the unchanged example', async () => {
-  render(<Harness />);
+it('keeps the form unchanged if tag creation fails', async () => {
+  server.use(
+    http.post(`${base}/tags`, () =>
+      HttpResponse.json(
+        { error: { code: 'failed', message: 'Cannot create tag' } },
+        { status: 500 },
+      ),
+    ),
+  );
+  mount();
+  const initial = values();
+  await add('{"excerpt":"New summary","tags":["New tag"]}');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Cannot create tag');
+  expect(values()).toEqual(initial);
+});
+
+it('respects tag creation permissions', async () => {
+  mount({ canCreateTags: false });
+  await add('{"tags":["New tag"]}');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Only admins can create missing tags');
+  await add('{"tags":["Existing tag"]}');
+  await success();
+  expect(values().tag_ids).toEqual([existingTag.id]);
+});
+
+it('shows name examples without IDs or featured status and rejects unchanged examples', async () => {
+  mount();
   const initial = values();
   const example = screen.getByLabelText('Article data (JSON)').getAttribute('placeholder')!;
   expect(Object.keys(JSON.parse(example))).toEqual([
@@ -109,29 +205,20 @@ it('shows all supported keys in the placeholder and rejects the unchanged exampl
     'meta_description',
     'primary_keywords',
     'secondary_keywords',
-    'author_id',
-    'article_type_id',
-    'category_ids',
-    'tag_ids',
-    'is_featured',
+    'article_type',
+    'categories',
+    'tags',
   ]);
   await add(example);
-  expect(screen.getByRole('alert')).toHaveTextContent('Add your own values');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Add your own values');
   expect(values()).toEqual(initial);
-});
-
-it('rejects remaining example values even after some fields have been replaced', async () => {
-  render(<Harness />);
-  const initial = values();
-  await add(
-    JSON.stringify({ excerpt: 'My real summary', primary_keywords: ['Your primary keyword'] }),
-  );
-  expect(screen.getByRole('alert')).toHaveTextContent('Add your own values for: primary_keywords');
+  await add('{"excerpt":"Real summary","tags":["Your tag name"]}');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Add your own values for: tags');
   expect(values()).toEqual(initial);
 });
 
 it('disables the input and button while the form is disabled', () => {
-  render(<Harness disabled />);
+  mount({ disabled: true });
   expect(screen.getByLabelText('Article data (JSON)')).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
 });
