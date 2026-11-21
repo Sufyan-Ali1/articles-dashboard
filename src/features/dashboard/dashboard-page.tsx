@@ -1,5 +1,6 @@
 import { AudienceOverview } from '@/features/audience/audience-overview';
 import { TrafficPanel } from '@/features/traffic/traffic-panel';
+import { CopyArticlesButton } from './copy-articles-button';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -144,6 +145,7 @@ export default function DashboardPage() {
         >
           <RefreshCw />
         </Button>
+        <CopyArticlesButton />
         <Button asChild>
           <Link to="/articles/new">
             <Plus />
